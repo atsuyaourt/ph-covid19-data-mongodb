@@ -32,8 +32,8 @@ data_dict = in_df.to_dict("records")
 mongo_col.create_index(
     [
         ("createdAt", -1),
-        ("CaseCode", 1),
-        ("HealthStatus", 1),
+        ("caseCode", 1),
+        ("healthStatus", 1),
     ],
     unique=True,
 )
