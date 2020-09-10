@@ -17,6 +17,7 @@ mongo_col = mongo_db["case_info"]
 in_csv = list(Path("input/csv").glob("*case_info.csv"))[-1]
 curr_df = pd.read_csv(in_csv)
 curr_df = prep_data(curr_df)
+curr_df = curr_df.drop(columns=["validationStatus"], errors="ignore")
 date_str = in_csv.name.split("_")[0]
 new_date = pd.to_datetime(date_str).tz_localize("Asia/Manila")
 print("Date: {}".format(new_date))
@@ -24,6 +25,7 @@ print("Date: {}".format(new_date))
 in_csv0 = list(Path("input/csv").glob("*case_info.csv"))[-2]
 prev_df = pd.read_csv(in_csv0)
 prev_df = prep_data(prev_df)
+prev_df = prev_df.drop(columns=["validationStatus"], errors="ignore")
 
 curr_cnt = len(mongo_col.distinct("caseCode", {"healthStatus": {"$not": {"$eq": "invalid"}}}))
 print("Current count: {}".format(curr_cnt))
@@ -70,7 +72,7 @@ if len(del_case_code) > 0:
             }
         },
     )
-    print("Deleted entries: {}".format(del_case_code))
+    print("Deleted entries: {}".format(len(del_case_code)))
 
 new_cnt = len(mongo_col.distinct("caseCode", {"healthStatus": {"$not": {"$eq": "invalid"}}}))
 print("New CSV count: {}".format(curr_df.shape[0]))
