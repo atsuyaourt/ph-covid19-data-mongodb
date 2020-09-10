@@ -30,29 +30,30 @@ prev_df = prev_df.drop(columns=["validationStatus"], errors="ignore")
 curr_cnt = len(mongo_col.distinct("caseCode", {"healthStatus": {"$not": {"$eq": "invalid"}}}))
 print("Current count: {}".format(curr_cnt))
 
+new_df = pd.concat([prev_df, prev_df, curr_df]).drop_duplicates(keep=False)
+
 # region updated entrie
 exist_df = pd.DataFrame(
     mongo_col.find(
-        {"caseCode": {"$in": curr_df["caseCode"].to_list()}, "healthStatus": {"$not": {"$eq": "invalid"}}},
+        {"caseCode": {"$in": new_df["caseCode"].to_list()}, "healthStatus": {"$not": {"$eq": "invalid"}}},
         {"caseCode": 1, "healthStatus": 1, "createdAt": 1},
     )
 )
 
-update_df = exist_df.merge(curr_df, on=["caseCode", "healthStatus"])
-update_ids = update_df["_id"].to_list()
-
+update_df = exist_df.merge(new_df, on=["caseCode", "healthStatus"])
 if update_df.shape[0] > 0:
+    update_ids = update_df["_id"].to_list()
     mongo_col.delete_many({"_id": {"$in": update_ids}})
-    _update_df = update_df.drop(columns=["_id"])
-    _update_df["updatedAt"] = new_date
-    data_dict = _update_df.to_dict("records")
+    update_df["updatedAt"] = new_date
+    update_df = update_df.drop(columns=["_id"], errors="ignore")
+    data_dict = update_df.to_dict("records")
     mongo_col.insert_many(data_dict)
     print("Updated entries: {}".format(update_df.shape[0]))
 # endregion updated entries
 
 # region new entries
-__update_df = update_df.drop(columns=["_id", "createdAt"])
-new_df = pd.concat([__update_df, __update_df, curr_df]).drop_duplicates(subset=["caseCode", "healthStatus"], keep=False)
+_update_df = update_df.drop(columns=["createdAt", "updatedAt"], errors="ignore")
+new_df = pd.concat([_update_df, _update_df, new_df]).drop_duplicates(subset=["caseCode", "healthStatus"], keep=False)
 if new_df.shape[0] > 0:
     new_df["createdAt"] = new_date
     data_dict = new_df.to_dict("records")
