@@ -27,10 +27,16 @@ prev_df = pd.read_csv(in_csv0)
 prev_df = prep_data(prev_df)
 prev_df = prev_df.drop(columns=["validationStatus"], errors="ignore")
 
+new_cols = list(set(curr_df.columns) - set(prev_df.columns))
+if len(new_cols) > 0:
+    print("New column detected. Exiting...")
+    exit
+
 curr_cnt = len(mongo_col.distinct("caseCode", {"healthStatus": {"$not": {"$eq": "invalid"}}}))
 print("Current count: {}".format(curr_cnt))
 
-new_df = pd.concat([prev_df, prev_df, curr_df]).drop_duplicates(keep=False)
+common_cols = list(set(prev_df.columns) & set(curr_df.columns))
+new_df = pd.concat([prev_df[common_cols], prev_df[common_cols], curr_df[common_cols]]).drop_duplicates(keep=False)
 
 # region updated entrie
 exist_df = pd.DataFrame(
@@ -53,7 +59,10 @@ if update_df.shape[0] > 0:
 
 # region new entries
 _update_df = update_df.drop(columns=["createdAt", "updatedAt"], errors="ignore")
-new_df = pd.concat([_update_df, _update_df, new_df]).drop_duplicates(subset=["caseCode", "healthStatus"], keep=False)
+common_cols = list(set(_update_df.columns) & set(new_df.columns))
+new_df = pd.concat([_update_df[common_cols], _update_df[common_cols], new_df[common_cols]]).drop_duplicates(
+    subset=["caseCode", "healthStatus"], keep=False
+)
 if new_df.shape[0] > 0:
     new_df["createdAt"] = new_date
     data_dict = new_df.to_dict("records")
