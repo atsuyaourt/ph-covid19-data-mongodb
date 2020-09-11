@@ -6,9 +6,9 @@ Contains scripts for processing COVID-19 data from the [DOH](https://www.doh.gov
 **End Date:** `N/A`
 
 ## MongoDB
-- URI = mongodb+srv://<username>:<password>@ph-covid-19-o6bwa.mongodb.net/default?retryWrites=true&w=majority  
-- Username = viewer01, viewer02  
-- Password = 1WearMask
+- URI = mongodb+srv://\<username\>:\<password\>@ph-covid-19-o6bwa.mongodb.net/default?retryWrites=true&w=majority  
+- username = viewer01, viewer02  
+- password = 1WearMask
 
 You can also contact me for the latest mongodump
 
