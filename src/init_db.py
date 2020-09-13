@@ -25,7 +25,7 @@ in_df["createdAt"] = pd.to_datetime(date_str).tz_localize("Asia/Manila")
 # initialize monogodb
 mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
 mongo_db = mongo_client["default"]
-mongo_col = mongo_db["case_info"]
+mongo_col = mongo_db["cases"]
 
 # insert data
 data_dict = in_df.to_dict("records")

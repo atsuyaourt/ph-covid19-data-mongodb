@@ -12,7 +12,7 @@ load_dotenv()
 
 mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
 mongo_db = mongo_client["default"]
-mongo_col = mongo_db["case_info"]
+mongo_col = mongo_db["cases"]
 
 in_csv = list(Path("input/csv").glob("*case_info.csv"))[-1]
 curr_df = pd.read_csv(in_csv)
