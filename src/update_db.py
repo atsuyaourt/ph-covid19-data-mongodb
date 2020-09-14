@@ -14,7 +14,9 @@ mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
 mongo_db = mongo_client["default"]
 mongo_col = mongo_db["cases"]
 
-in_csv = list(Path("input/csv").glob("*case_info.csv"))[-1]
+in_csvs = list(Path("input/csv").glob("*case_info.csv"))
+in_csvs.sort()
+in_csv = in_csvs[-1]
 curr_df = pd.read_csv(in_csv)
 curr_df = prep_data(curr_df)
 curr_df = curr_df.drop(columns=["validationStatus"], errors="ignore")
@@ -22,7 +24,7 @@ date_str = in_csv.name.split("_")[0]
 new_date = pd.to_datetime(date_str).tz_localize("Asia/Manila")
 print("Date: {}".format(new_date))
 
-in_csv0 = list(Path("input/csv").glob("*case_info.csv"))[-2]
+in_csv0 = in_csvs[-2]
 prev_df = pd.read_csv(in_csv0)
 prev_df = prep_data(prev_df)
 prev_df = prev_df.drop(columns=["validationStatus"], errors="ignore")
