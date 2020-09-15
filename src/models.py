@@ -1,8 +1,12 @@
-COL_DTYPE = dict(
+SEX_ENUM = ["male", "female"]
+REMOVAL_TYPE_ENUM = ["recovered", "died"]
+HEALTH_STATS_ENUM = ["recovered", "died", "confirmed"]
+
+CASE_SCHEMA = dict(
     caseCode=dict(dtype="String", default=""),
     age=dict(dtype="Integer", default=""),
     ageGroup=dict(dtype="String", default=""),
-    sex=dict(dtype="Enum"),
+    sex=dict(dtype="Enum", default=""),
     dateSpecimen=dict(dtype="Date", default=0),
     dateResultRelease=dict(dtype="Date", default=0),
     dateRepConf=dict(dtype="Date", default=0),
@@ -24,8 +28,4 @@ COL_DTYPE = dict(
     validationStatus=dict(dtype="String", default=""),
 )
 
-COL_MAP = dict(Admitted="isAdmitted", Quarantined="isQuarantined", Pregnanttab="isPregnant")
-
-SEX_ENUM = ["male", "female"]
-REMOVAL_TYPE_ENUM = ["recovered", "died"]
-HEALTH_STATS_ENUM = ["recovered", "died", "confirmed"]
+CASE_FIELD_MAP = dict(Admitted="isAdmitted", Quarantined="isQuarantined", Pregnanttab="isPregnant")

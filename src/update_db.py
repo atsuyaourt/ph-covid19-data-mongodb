@@ -6,10 +6,10 @@ from pymongo import MongoClient
 
 import pandas as pd
 
-from helpers import prep_data, COL_DTYPE
+from helpers import prep_data
+from models import CASE_SCHEMA
 
 load_dotenv()
-# load_dotenv(dotenv_path=Path("..")/".env")
 
 
 def main():
@@ -33,14 +33,14 @@ def main():
     prev_df = prev_df.drop(columns=["validationStatus"], errors="ignore")
 
     new_cols = list(set(curr_df.columns) - set(prev_df.columns))
-    if not all([col_name in COL_DTYPE.keys() for col_name in new_cols]):
+    if not all([col_name in CASE_SCHEMA.keys() for col_name in new_cols]):
         print("New columns found, please update")
         mongo_client.close()
         sys.exit()
 
     if len(new_cols) > 0:
         print("Added new columns")
-        defaults = {k: v["default"] for col_name in new_cols for k, v in COL_DTYPE.items() if k==col_name}
+        defaults = {k: v["default"] for col_name in new_cols for k, v in CASE_SCHEMA.items() if k == col_name}
         mongo_col.update_many({}, {"$set": defaults})
 
     curr_cnt = len(mongo_col.distinct("caseCode", {"healthStatus": {"$not": {"$eq": "invalid"}}}))
