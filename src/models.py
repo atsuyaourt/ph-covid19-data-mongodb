@@ -29,3 +29,31 @@ CASE_SCHEMA = dict(
 )
 
 CASE_FIELD_MAP = dict(Admitted="isAdmitted", Quarantined="isQuarantined", Pregnanttab="isPregnant")
+
+REGION_MAP = {
+    'Region I: Ilocos Region': 'Ilocos Region (Region I)',
+    'Region II: Cagayan Valley': 'Cagayan Valley (Region II)',
+    'Region III: Central Luzon': 'Central Luzon (Region III)',
+    'Region IV-A: CALABARZON': 'CALABARZON (Region IV-A)',
+    'Region IV-B: MIMAROPA': 'MIMAROPA (Region IV-B)',
+    'Region V: Bicol Region': 'Bicol Region (Region V)',
+    'Region VI: Western Visayas': 'Western Visayas (Region VI)',
+    'Region VII: Central Visayas': 'Central Visayas (Region VII)',
+    'Region VIII: Eastern Visayas': 'Eastern Visayas (Region VIII)',
+    'Region IX: Zamboanga Peninsula': 'Zamboanga Peninsula (Region IX)',
+    'Region X: Northern Mindanao': 'Northern Mindanao (Region X)',
+    'Region XI: Davao Region': 'Davao Region (Region XI)',
+    'Region XII: SOCCSKSARGEN': 'SOCCSKSARGEN (Region XII)',
+    'CARAGA': 'Caraga (Region XIII)',
+    'CAR': 'Cordillera Administrative Region (CAR)',
+    'NCR': 'Metropolitan Manila',
+    '4B': 'MIMAROPA (Region IV-B)',
+    'MIMAROPA': 'MIMAROPA (Region IV-B)',
+    'BARMM': 'Autonomous Region of Muslim Mindanao (ARMM)',
+    'REPATRIATE': 'Repatriate',
+    'Repatriate': 'Repatriate',
+    'ROF': 'ROF',
+    '': ''
+}
+
+REGION_UNKNOWN = ['ROF', 'Repatriate', '']
