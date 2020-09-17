@@ -32,6 +32,8 @@ You can also contact me for the latest mongodump
 | provRes           | Province of residence                                                    | String  |
 | cityMunRes        | City of residence                                                        | String  |
 | cityMuniPSGC      | Philippine Standard Geographic Code of Municipality or City of Residence | String  |
+| barangayRes       | Barangay of residence                                                    | String  |
+| barangayPSGC      | Philippine Standard Geographic Code of Barangay of Residence             | String  |
 | healthStatus      | Known current health status of patient                                   | Enum    |
 |                   | [asymptomatic, mild, severe, critical, died, recovered]                  |         |
 | isQuarantined     | Yes if home quarantined                                                  | Boolean |
