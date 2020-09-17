@@ -5,7 +5,6 @@ HEALTH_STATS_ENUM = ["recovered", "died", "confirmed"]
 CASE_SCHEMA = dict(
     caseCode=dict(dtype="String", default=""),
     age=dict(dtype="Integer", default=""),
-    ageGroup=dict(dtype="String", default=""),
     sex=dict(dtype="Enum", default=""),
     dateSpecimen=dict(dtype="Date", default=0),
     dateResultRelease=dict(dtype="Date", default=0),
@@ -25,35 +24,35 @@ CASE_SCHEMA = dict(
     isQuarantined=dict(dtype="Bool"),
     dateOnset=dict(dtype="Date", default=0),
     isPregnant=dict(dtype="Bool"),
-    validationStatus=dict(dtype="String", default=""),
 )
 
 CASE_FIELD_MAP = dict(Admitted="isAdmitted", Quarantined="isQuarantined", Pregnanttab="isPregnant")
+CASE_FIELD_DROP = ["ageGroup", "validationStatus"]
 
 REGION_MAP = {
-    'Region I: Ilocos Region': 'Ilocos Region (Region I)',
-    'Region II: Cagayan Valley': 'Cagayan Valley (Region II)',
-    'Region III: Central Luzon': 'Central Luzon (Region III)',
-    'Region IV-A: CALABARZON': 'CALABARZON (Region IV-A)',
-    'Region IV-B: MIMAROPA': 'MIMAROPA (Region IV-B)',
-    'Region V: Bicol Region': 'Bicol Region (Region V)',
-    'Region VI: Western Visayas': 'Western Visayas (Region VI)',
-    'Region VII: Central Visayas': 'Central Visayas (Region VII)',
-    'Region VIII: Eastern Visayas': 'Eastern Visayas (Region VIII)',
-    'Region IX: Zamboanga Peninsula': 'Zamboanga Peninsula (Region IX)',
-    'Region X: Northern Mindanao': 'Northern Mindanao (Region X)',
-    'Region XI: Davao Region': 'Davao Region (Region XI)',
-    'Region XII: SOCCSKSARGEN': 'SOCCSKSARGEN (Region XII)',
-    'CARAGA': 'Caraga (Region XIII)',
-    'CAR': 'Cordillera Administrative Region (CAR)',
-    'NCR': 'Metropolitan Manila',
-    '4B': 'MIMAROPA (Region IV-B)',
-    'MIMAROPA': 'MIMAROPA (Region IV-B)',
-    'BARMM': 'Autonomous Region of Muslim Mindanao (ARMM)',
-    'REPATRIATE': 'Repatriate',
-    'Repatriate': 'Repatriate',
-    'ROF': 'ROF',
-    '': ''
+    "Region I: Ilocos Region": "Ilocos Region (Region I)",
+    "Region II: Cagayan Valley": "Cagayan Valley (Region II)",
+    "Region III: Central Luzon": "Central Luzon (Region III)",
+    "Region IV-A: CALABARZON": "CALABARZON (Region IV-A)",
+    "Region IV-B: MIMAROPA": "MIMAROPA (Region IV-B)",
+    "Region V: Bicol Region": "Bicol Region (Region V)",
+    "Region VI: Western Visayas": "Western Visayas (Region VI)",
+    "Region VII: Central Visayas": "Central Visayas (Region VII)",
+    "Region VIII: Eastern Visayas": "Eastern Visayas (Region VIII)",
+    "Region IX: Zamboanga Peninsula": "Zamboanga Peninsula (Region IX)",
+    "Region X: Northern Mindanao": "Northern Mindanao (Region X)",
+    "Region XI: Davao Region": "Davao Region (Region XI)",
+    "Region XII: SOCCSKSARGEN": "SOCCSKSARGEN (Region XII)",
+    "CARAGA": "Caraga (Region XIII)",
+    "CAR": "Cordillera Administrative Region (CAR)",
+    "NCR": "Metropolitan Manila",
+    "4B": "MIMAROPA (Region IV-B)",
+    "MIMAROPA": "MIMAROPA (Region IV-B)",
+    "BARMM": "Autonomous Region of Muslim Mindanao (ARMM)",
+    "REPATRIATE": "Repatriate",
+    "Repatriate": "Repatriate",
+    "ROF": "ROF",
+    "": "",
 }
 
-REGION_UNKNOWN = ['ROF', 'Repatriate', '']
+REGION_UNKNOWN = ["ROF", "Repatriate", ""]

@@ -1,6 +1,6 @@
 from pandas import to_datetime
 
-from models import CASE_FIELD_MAP, CASE_SCHEMA
+from models import CASE_FIELD_MAP, CASE_SCHEMA, CASE_FIELD_DROP
 
 
 # function to convert string to camelCase
@@ -11,6 +11,7 @@ def camel_case(string):
 def prep_data(df):
     df = df.rename(columns=CASE_FIELD_MAP)
     df.columns = [camel_case(c) for c in df.columns]
+    df = df.drop(columns=CASE_FIELD_DROP, errors="ignore")
     for col_name in df.columns:
         if col_name in CASE_SCHEMA:
             if CASE_SCHEMA[col_name]["dtype"] == "String":

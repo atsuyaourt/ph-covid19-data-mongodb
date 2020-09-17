@@ -22,7 +22,7 @@ def main():
     in_csv = in_csvs[-1]
     curr_df = pd.read_csv(in_csv)
     curr_df = prep_data(curr_df)
-    curr_df = curr_df.drop(columns=["validationStatus"], errors="ignore")
+
     date_str = in_csv.name.split("_")[0]
     new_date = pd.to_datetime(date_str).tz_localize("Asia/Manila")
     print("Date: {}".format(new_date))
@@ -30,7 +30,6 @@ def main():
     in_csv0 = in_csvs[-2]
     prev_df = pd.read_csv(in_csv0)
     prev_df = prep_data(prev_df)
-    prev_df = prev_df.drop(columns=["validationStatus"], errors="ignore")
 
     new_cols = list(set(curr_df.columns) - set(prev_df.columns))
     if not all([col_name in CASE_SCHEMA.keys() for col_name in new_cols]):

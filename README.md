@@ -18,7 +18,6 @@ You can also contact me for the latest mongodump
 | ----------------- | ------------------------------------------------------------------------ | ------- |
 | caseCode          | Random code assigned for labelling cases                                 | String  |
 | age               | Age                                                                      | Integer |
-| ageGroup          | Five-year age group                                                      | String  |
 | sex               | Sex                                                                      | Enum    |
 | dateSpecimen      | Date when specimen was collected                                         | Date    |
 | dateResultRelease | Date when result is released                                             | Date    |
