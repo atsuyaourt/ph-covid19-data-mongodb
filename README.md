@@ -38,9 +38,14 @@ You can also contact me for the latest mongodump
 | isQuarantined     | Yes if home quarantined                                                  | Boolean |
 | dateOnset         | Date of onset of symptoms                                                | Date    |
 | isPregnant        | Yes if patient is pregnant at any point during COVID-19 condition        | Boolean |
+| ----------------- | **Additional Fields**                                                    | ------- |
+| ----------------- | ------------------------------------------------------------------------ | ------- |
 | createdAt         | Date added to database                                                   | Date    |
 | updatedAt         | Date updated in the database                                             | Date    |
 | deletedAt         | Date marked as invalid in the database                                   | Date    |
+| regionResGeo      | Region of residence                                                      | Loc     |
+| provResGeo        | Province of residence                                                    | Loc     |
+| cityMunResGeo     | City of residence                                                        | Loc     |
 
 
 - Indices: `createdAt`, `caseCode`, `healthStatus`
