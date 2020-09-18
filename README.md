@@ -52,7 +52,7 @@ You can also contact me for the latest mongodump
 - No Date: `ISODate("1970-01-01T00:00:00 PHT")`
 - Entries identified by DOH as duplicates have the following field values:
   
-    ```js
+    ```json
     {  
         deletedAt: { $exists: 1 },
         healthStatus: "invalid",  
