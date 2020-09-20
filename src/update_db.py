@@ -7,12 +7,12 @@ from pymongo import MongoClient
 import pandas as pd
 
 from helpers import prep_data
-from models import CASE_SCHEMA
-
-load_dotenv()
+from models import CASE_SCHEMA, REGION_MAP, REGION_UNKNOWN
+from make_mappable import update_loc_city_mun, update_loc_province
 
 
 def main():
+    load_dotenv()
     mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
     mongo_db = mongo_client["default"]
     mongo_col = mongo_db["cases"]
@@ -49,6 +49,30 @@ def main():
     new_df = pd.concat([prev_df[common_cols], prev_df[common_cols], curr_df[common_cols]]).drop_duplicates(keep=False)
     new_df = curr_df.loc[curr_df["caseCode"].isin(new_df["caseCode"])].copy()
 
+    new_df.loc[:, "regionResGeo"] = new_df["regionRes"].map(REGION_MAP)
+    new_with_city_mun_df = new_df.loc[
+        (~((new_df["cityMunRes"] == "") | (new_df["cityMunRes"].isna())))
+        & (~(new_df["regionResGeo"].isin(REGION_UNKNOWN)))
+    ].copy()
+    with_city_mun_idx = new_with_city_mun_df.index.to_list()
+    new_with_city_mun_df = update_loc_city_mun(new_with_city_mun_df)
+
+    new_with_prov_df = new_df.loc[
+        (~(new_df.index.isin(with_city_mun_idx)))
+        & (~((new_df["provRes"] == "") | (new_df["provRes"].isna())))
+        & (~(new_df["regionResGeo"].isin(REGION_UNKNOWN)))
+    ].copy()
+    with_prov_idx = new_with_prov_df.index.to_list()
+    new_with_prov_df = update_loc_province(new_with_prov_df)
+
+    new_df = pd.concat(
+        [
+            new_with_city_mun_df,
+            new_with_prov_df,
+            new_df.loc[~(new_df.index.isin(with_city_mun_idx + with_prov_idx))].copy(),
+        ]
+    )
+
     # region updated entries
     exist_df = pd.DataFrame(
         mongo_col.find(
@@ -70,12 +94,11 @@ def main():
 
     # region new entries
     if update_df.shape[0] > 0:
-        _update_df = update_df.drop(columns=["createdAt", "updatedAt"], errors="ignore")
-        common_cols = list(set(_update_df.columns) & set(new_df.columns))
-        new_df = pd.concat([_update_df[common_cols], _update_df[common_cols], new_df[common_cols]]).drop_duplicates(
-            subset=["caseCode", "healthStatus"], keep=False
-        )
-        new_df = curr_df.loc[curr_df["caseCode"].isin(new_df["caseCode"])].copy()
+        new_df = new_df.loc[
+            ~(new_df["caseCode"] + "_" + new_df["healthStatus"]).isin(
+                update_df["caseCode"] + "_" + update_df["healthStatus"]
+            )
+        ].copy()
 
     if new_df.shape[0] > 0:
         new_df["createdAt"] = new_date
