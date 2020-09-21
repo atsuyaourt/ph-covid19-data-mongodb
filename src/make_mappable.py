@@ -11,6 +11,9 @@ from fuzzywuzzy import process as fz_process
 
 from models import REGION_MAP, REGION_UNKNOWN
 
+LOC_CITY_MUN_SAV = Path("config/lookup/loc_city_mun.csv")
+LOC_PROV_SAV = Path("config/lookup/loc_prov.csv")
+
 
 def update_loc_city_mun(db_loc_df, mongo_col=None):
     muni_city_df = gpd.read_file(Path("input/shp/MuniCity/muni_city.shp"))
@@ -24,25 +27,52 @@ def update_loc_city_mun(db_loc_df, mongo_col=None):
         (db_loc_df["cityMunRes"] + " " + db_loc_df["provRes"]).str.lower().str.replace(r"\([^)]*\)\ ", "", regex=True)
     )
 
+    lookup_df = pd.DataFrame(
+        [{"regionRes": "", "provRes": "", "cityMunRes": "", "provResGeo": "", "cityMunResGeo": ""}]
+    )
+    if LOC_CITY_MUN_SAV.is_file():
+        lookup_df = pd.read_csv(LOC_CITY_MUN_SAV)
+
     for i, r in tqdm(db_loc_df.iterrows(), total=db_loc_df.shape[0]):
-        m_loc_name = ""
-        m_loc_name, _, _ = fz_process.extract(
-            r["loc_name"],
-            muni_city_df.loc[muni_city_df["region"] == r["regionResGeo"], "loc_name"],
-            limit=1,
-        )[0]
-        if len(m_loc_name) > 0:
-            m_prov, m_city_mun = muni_city_df.loc[muni_city_df["loc_name"] == m_loc_name, ["province", "name"]].values[
-                0
-            ]
-            db_loc_df.loc[db_loc_df["loc_name"] == r["loc_name"], "provResGeo"] = m_prov
-            db_loc_df.loc[db_loc_df["loc_name"] == r["loc_name"], "cityMunResGeo"] = m_city_mun
-            if mongo_col is not None:
-                mongo_col.update_many(
-                    {"regionRes": r["regionRes"], "provRes": r["provRes"], "cityMunRes": r["cityMunRes"]},
-                    {"$set": {"regionResGeo": r["regionResGeo"], "provResGeo": m_prov, "cityMunResGeo": m_city_mun}},
-                )
+        res_prov = ""
+        res_city_mun = ""
+        res = lookup_df.loc[
+            (lookup_df["regionRes"] == r["regionRes"])
+            & (lookup_df["provRes"] == r["provRes"])
+            & (lookup_df["cityMunRes"] == r["cityMunRes"]),
+            ["provResGeo", "cityMunResGeo"],
+        ]
+        if res.shape[0] == 0:
+            res, _, _ = fz_process.extract(
+                r["loc_name"],
+                muni_city_df.loc[muni_city_df["region"] == r["regionResGeo"], "loc_name"],
+                limit=1,
+            )[0]
+            if len(res) > 0:
+                res_prov, res_city_mun = muni_city_df.loc[muni_city_df["loc_name"] == res, ["province", "name"]].values[
+                    0
+                ]
+        else:
+            res_prov, res_city_mun = res.iloc[0].values
+        db_loc_df.loc[db_loc_df["loc_name"] == r["loc_name"], "provResGeo"] = res_prov
+        db_loc_df.loc[db_loc_df["loc_name"] == r["loc_name"], "cityMunResGeo"] = res_city_mun
+        if (mongo_col is not None) & (res_prov != "") & (res_city_mun != ""):
+            mongo_col.update_many(
+                {"regionRes": r["regionRes"], "provRes": r["provRes"], "cityMunRes": r["cityMunRes"]},
+                {"$set": {"regionResGeo": r["regionResGeo"], "provResGeo": res_prov, "cityMunResGeo": res_city_mun}},
+            )
     if mongo_col is None:
+        (
+            pd.concat(
+                [
+                    lookup_df,
+                    db_loc_df[["regionRes", "provRes", "cityMunRes", "regionResGeo", "provResGeo", "cityMunResGeo"]],
+                ],
+                ignore_index=True,
+            )
+            .drop_duplicates()
+            .dropna()
+        ).to_csv(LOC_CITY_MUN_SAV, index=False)
         return db_loc_df.drop(columns=["loc_name"], errors="ignore")
 
 
@@ -50,26 +80,47 @@ def update_loc_province(db_loc_df, mongo_col=None):
     prov_df = gpd.read_file(Path("input/shp/Province/province.shp"))
     prov_df = prov_df.sort_values("region")
 
+    lookup_df = pd.DataFrame([{"regionRes": "", "provRes": "", "provResGeo": ""}])
+    if LOC_PROV_SAV.is_file():
+        lookup_df = pd.read_csv(LOC_PROV_SAV)
+
     for i, r in tqdm(db_loc_df.iterrows(), total=db_loc_df.shape[0]):
-        m_loc_name = ""
-        m_loc_name, _, _ = fz_process.extract(
-            r["provRes"],
-            prov_df.loc[prov_df["region"] == r["regionResGeo"], "province"],
-            limit=1,
-        )[0]
-        if len(m_loc_name) > 0:
-            m_prov = prov_df.loc[prov_df["province"] == m_loc_name, "province"].values[0]
-            db_loc_df.loc[db_loc_df["provRes"] == r["provRes"], "provResGeo"] = m_prov
-            if mongo_col is not None:
-                mongo_col.update_many(
-                    {"regionRes": r["regionRes"], "provRes": r["provRes"], "cityMunRes": ""},
-                    {"$set": {"regionResGeo": r["regionResGeo"], "provResGeo": m_prov}},
-                )
-                mongo_col.update_many(
-                    {"regionRes": r["regionRes"], "provRes": r["provRes"], "cityMunRes": {"$exists": False}},
-                    {"$set": {"regionResGeo": r["regionResGeo"], "provResGeo": m_prov}},
-                )
+        res_prov = ""
+        res = lookup_df.loc[
+            (lookup_df["regionRes"] == r["regionRes"]) & (lookup_df["provRes"] == r["provRes"]), ["provResGeo"]
+        ]
+        if res.shape[0] == 0:
+            res, _, _ = fz_process.extract(
+                r["provRes"],
+                prov_df.loc[prov_df["region"] == r["regionResGeo"], "province"],
+                limit=1,
+            )[0]
+            if len(res) > 0:
+                res_prov = prov_df.loc[prov_df["province"] == res, "province"].values[0]
+        else:
+            res_prov = res.iloc[0].values
+        db_loc_df.loc[db_loc_df["provRes"] == r["provRes"], "provResGeo"] = res_prov
+        if (mongo_col is not None) & (res_prov != ""):
+            mongo_col.update_many(
+                {"regionRes": r["regionRes"], "provRes": r["provRes"], "cityMunRes": ""},
+                {"$set": {"regionResGeo": r["regionResGeo"], "provResGeo": res_prov}},
+            )
+            mongo_col.update_many(
+                {"regionRes": r["regionRes"], "provRes": r["provRes"], "cityMunRes": {"$exists": False}},
+                {"$set": {"regionResGeo": r["regionResGeo"], "provResGeo": res_prov}},
+            )
     if mongo_col is None:
+        (
+            pd.concat(
+                [
+                    lookup_df,
+                    db_loc_df[["regionRes", "provRes", "regionResGeo", "provResGeo"]],
+                ],
+                ignore_index=True,
+            )
+            .drop_duplicates()
+            .dropna()
+        ).to_csv(LOC_PROV_SAV, index=False)
         return db_loc_df
 
 
