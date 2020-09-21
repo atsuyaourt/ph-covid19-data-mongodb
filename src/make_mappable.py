@@ -102,11 +102,11 @@ def update_loc_province(db_loc_df, mongo_col=None):
         db_loc_df.loc[db_loc_df["provRes"] == r["provRes"], "provResGeo"] = res_prov
         if (mongo_col is not None) & (res_prov != ""):
             mongo_col.update_many(
-                {"regionRes": r["regionRes"], "provRes": r["provRes"], "cityMunRes": ""},
-                {"$set": {"regionResGeo": r["regionResGeo"], "provResGeo": res_prov}},
-            )
-            mongo_col.update_many(
-                {"regionRes": r["regionRes"], "provRes": r["provRes"], "cityMunRes": {"$exists": False}},
+                {
+                    "regionRes": r["regionRes"],
+                    "provRes": r["provRes"],
+                    "$or": [{"cityMunRes": {"$exists": False}}, {"cityMunRes": ""}],
+                },
                 {"$set": {"regionResGeo": r["regionResGeo"], "provResGeo": res_prov}},
             )
     if mongo_col is None:
