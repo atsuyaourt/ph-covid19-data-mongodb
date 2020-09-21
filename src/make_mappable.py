@@ -131,19 +131,13 @@ def update_loc_region(db_loc_region_df, mongo_col):
         cnt += 1
         print("{:.2f} %".format(100.0 * cnt / tot))
         mongo_col.update_many(
-            {"regionRes": r["regionRes"], "provRes": "", "cityMunRes": ""},
-            {"$set": {"regionResGeo": r["regionResGeo"]}},
-        )
-        mongo_col.update_many(
-            {"regionRes": r["regionRes"], "provRes": "", "cityMunRes": {"$exists": False}},
-            {"$set": {"regionResGeo": r["regionResGeo"]}},
-        )
-        mongo_col.update_many(
-            {"regionRes": r["regionRes"], "provRes": {"$exists": False}, "cityMunRes": ""},
-            {"$set": {"regionResGeo": r["regionResGeo"]}},
-        )
-        mongo_col.update_many(
-            {"regionRes": r["regionRes"], "provRes": {"$exists": False}, "cityMunRes": {"$exists": False}},
+            {
+                "$and": [
+                    {"regionRes": r["regionRes"]},
+                    {"$or": [{"provRes": {"$exists": False}}, {"provRes": ""}]},
+                    {"$or": [{"cityMunRes": {"$exists": False}}, {"cityMunRes": ""}]},
+                ],
+            },
             {"$set": {"regionResGeo": r["regionResGeo"]}},
         )
 
