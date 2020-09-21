@@ -54,8 +54,8 @@ You can also contact me for the latest mongodump
   
     ```json
     {  
-        deletedAt: { $exists: 1 },
-        healthStatus: "invalid",  
-        removalType: "duplicate"  
+        "deletedAt": { "$exists": 1 },
+        "healthStatus": "invalid",  
+        "removalType": "duplicate"  
     }
     ```
