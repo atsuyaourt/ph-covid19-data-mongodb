@@ -98,7 +98,7 @@ def update_loc_province(db_loc_df, mongo_col=None):
             if len(res) > 0:
                 res_prov = prov_df.loc[prov_df["province"] == res, "province"].values[0]
         else:
-            res_prov = res.iloc[0].values
+            res_prov = res.iloc[0].values[0]
         db_loc_df.loc[db_loc_df["provRes"] == r["provRes"], "provResGeo"] = res_prov
         if (mongo_col is not None) & (res_prov != ""):
             mongo_col.update_many(
