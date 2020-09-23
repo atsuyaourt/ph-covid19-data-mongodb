@@ -1,4 +1,5 @@
 import os
+import sys
 from tqdm import tqdm
 from pathlib import Path
 from dotenv import load_dotenv
@@ -10,6 +11,8 @@ import geopandas as gpd
 from fuzzywuzzy import process as fz_process
 
 from models import REGION_MAP, REGION_UNKNOWN
+
+load_dotenv()
 
 LOC_CITY_MUN_SAV = Path("config/lookup/loc_city_mun.csv")
 LOC_PROV_SAV = Path("config/lookup/loc_prov.csv")
@@ -143,17 +146,21 @@ def update_loc_region(db_loc_region_df, mongo_col):
 
 
 def make_mappable():
-    load_dotenv()
+    # region mongodb
+    print("Connecting to mongodb...")
     mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
+    if "default" not in mongo_client.list_database_names():
+        print("Database not found... exiting...")
+        mongo_client.close()
+        sys.exit()
     mongo_db = mongo_client["default"]
+    if "cases" not in mongo_db.list_collection_names():
+        print("Collection not found... exiting...")
+        mongo_client.close()
+        sys.exit()
     mongo_col = mongo_db["cases"]
-
-    # Fetch location data from db
-
-    # db_loc_df.loc[
-    #     (db_loc_df["provRes"] == "NCR") & (db_loc_df["cityMunRes"] == "CITY OF CALOOCAN") & (db_loc_df["regionRes"] == ""),
-    #     "regionResGeo",
-    # ] = "Metropolitan Manila"
+    print("Connection successful...")
+    # endregion mongodb
 
     db_loc_city_mun_df = pd.DataFrame(
         mongo_col.find(

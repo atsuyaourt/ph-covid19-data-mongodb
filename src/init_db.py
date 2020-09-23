@@ -24,10 +24,21 @@ def main():
     date_str = in_csv.name.split("_")[0]
     in_df["createdAt"] = pd.to_datetime(date_str).tz_localize("Asia/Manila")
 
-    # initialize monogodb
+    # region mongodb
+    print("Connecting to mongodb...")
     mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
+    if "default" not in mongo_client.list_database_names():
+        print("Database not found... exiting...")
+        mongo_client.close()
+        sys.exit()
     mongo_db = mongo_client["default"]
+    if "cases" not in mongo_db.list_collection_names():
+        print("Collection not found... exiting...")
+        mongo_client.close()
+        sys.exit()
     mongo_col = mongo_db["cases"]
+    print("Connection successful...")
+    # endregion mongodb
 
     # insert data
     data_dict = in_df.to_dict("records")

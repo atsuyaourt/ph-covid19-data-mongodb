@@ -10,12 +10,25 @@ from helpers import prep_data
 from models import CASE_SCHEMA, REGION_MAP, REGION_UNKNOWN
 from make_mappable import update_loc_city_mun, update_loc_province
 
+load_dotenv()
+
 
 def main():
-    load_dotenv()
+    # region mongodb
+    print("Connecting to mongodb...")
     mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
+    if "default" not in mongo_client.list_database_names():
+        print("Database not found... exiting...")
+        mongo_client.close()
+        sys.exit()
     mongo_db = mongo_client["default"]
+    if "cases" not in mongo_db.list_collection_names():
+        print("Collection not found... exiting...")
+        mongo_client.close()
+        sys.exit()
     mongo_col = mongo_db["cases"]
+    print("Connection successful...")
+    # endregion mongodb
 
     in_csvs = list(Path("input/csv").glob("*case_info.csv"))
     in_csvs.sort()
