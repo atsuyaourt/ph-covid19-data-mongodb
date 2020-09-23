@@ -1,16 +1,12 @@
 # DOH COVID-19 Case Information Data for the Philippines
 
-Contains scripts for processing COVID-19 data from the [DOH](https://www.doh.gov.ph/) [data drop](http://bit.ly/DataDropPH).
-  
-**Start Date:** `June 9, 2020`  
-**End Date:** `N/A`
+Contains scripts for processing COVID-19 data from the [DOH data drop](http://bit.ly/DataDropPH).
 
-## MongoDB
-- URI = mongodb+srv://\<username\>:\<password\>@ph-covid-19-o6bwa.mongodb.net/default?retryWrites=true&w=majority  
-- username = viewer01, viewer02  
-- password = 1WearMask
+Data updated daily since `June 9, 20s20`.
 
-You can also contact me for the latest mongodump
+## Example API:
+* Live: https://phcovid19api.emiliogozo.me/v1/docs
+* Github: https://github.com/emiliogozo/ph-covid19-api
 
 
 ## Fields:
