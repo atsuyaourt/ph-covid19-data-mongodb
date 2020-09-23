@@ -2,7 +2,7 @@
 
 Contains scripts for processing COVID-19 data from the [DOH data drop](http://bit.ly/DataDropPH).
 
-Data updated daily since `June 9, 20s20`.
+Data updated daily since `June 9, 2020`.
 
 ## Example API:
 * Live: https://phcovid19api.emiliogozo.me/v1/docs
