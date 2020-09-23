@@ -42,7 +42,14 @@ def main():
         defaults = {k: v["default"] for col_name in new_cols for k, v in CASE_SCHEMA.items() if k == col_name}
         mongo_col.update_many({}, {"$set": defaults})
 
-    curr_cnt = len(mongo_col.distinct("caseCode", {"healthStatus": {"$not": {"$eq": "invalid"}}}))
+    curr_cnt = mongo_col.aggregate(
+        [
+            {"$match": {"healthStatus": {"$ne": "invalid"}}},
+            {"$sort": {"createdAt": -1}},
+            {"$group": {"_id": "$caseCode"}},
+            {"$group": {"_id": 1, "count": {"$sum": 1}}},
+        ]
+    ).next()["count"]
     print("Current count: {}".format(curr_cnt))
 
     common_cols = list(set(prev_df.columns) & set(curr_df.columns))
@@ -121,7 +128,15 @@ def main():
         )
         print("Deleted entries: {}".format(len(del_case_code)))
 
-    new_cnt = len(mongo_col.distinct("caseCode", {"healthStatus": {"$not": {"$eq": "invalid"}}}))
+    new_cnt = mongo_col.aggregate(
+        [
+            {"$match": {"healthStatus": {"$ne": "invalid"}}},
+            {"$sort": {"createdAt": -1}},
+            {"$group": {"_id": "$caseCode"}},
+            {"$group": {"_id": 1, "count": {"$sum": 1}}},
+        ]
+    ).next()["count"]
+
     print("New CSV count: {}".format(curr_df.shape[0]))
     print("New DB count: {}".format(new_cnt))
 
