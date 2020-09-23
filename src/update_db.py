@@ -52,7 +52,12 @@ def main():
 
     if len(new_cols) > 0:
         print("Added new columns")
-        defaults = {k: v["default"] for col_name in new_cols for k, v in CASE_SCHEMA.items() if k == col_name}
+        defaults = {
+            k: v["default"]
+            for col_name in new_cols
+            for k, v in CASE_SCHEMA.items()
+            if k == col_name
+        }
         mongo_col.update_many({}, {"$set": defaults})
 
     curr_cnt = mongo_col.aggregate(
@@ -66,7 +71,9 @@ def main():
     print("Current count: {}".format(curr_cnt))
 
     common_cols = list(set(prev_df.columns) & set(curr_df.columns))
-    new_df = pd.concat([prev_df[common_cols], prev_df[common_cols], curr_df[common_cols]]).drop_duplicates(keep=False)
+    new_df = pd.concat(
+        [prev_df[common_cols], prev_df[common_cols], curr_df[common_cols]]
+    ).drop_duplicates(keep=False)
     new_df = curr_df.loc[curr_df["caseCode"].isin(new_df["caseCode"])].copy()
 
     new_df.loc[:, "regionResGeo"] = new_df["regionRes"].map(REGION_MAP)
@@ -96,7 +103,10 @@ def main():
     # region updated entries
     exist_df = pd.DataFrame(
         mongo_col.find(
-            {"caseCode": {"$in": new_df["caseCode"].to_list()}, "healthStatus": {"$ne": "invalid"}},
+            {
+                "caseCode": {"$in": new_df["caseCode"].to_list()},
+                "healthStatus": {"$ne": "invalid"},
+            },
             {"caseCode": 1, "healthStatus": 1, "createdAt": 1},
         )
     )

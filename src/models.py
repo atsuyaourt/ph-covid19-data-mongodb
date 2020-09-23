@@ -26,7 +26,9 @@ CASE_SCHEMA = dict(
     isPregnant=dict(dtype="Bool"),
 )
 
-CASE_FIELD_MAP = dict(Admitted="isAdmitted", Quarantined="isQuarantined", Pregnanttab="isPregnant")
+CASE_FIELD_MAP = dict(
+    Admitted="isAdmitted", Quarantined="isQuarantined", Pregnanttab="isPregnant"
+)
 CASE_FIELD_DROP = ["ageGroup", "validationStatus"]
 
 REGION_MAP = {

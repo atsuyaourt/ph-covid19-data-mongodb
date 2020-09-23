@@ -21,7 +21,9 @@ def prep_data(df):
                 df.loc[df[col_name].isna(), col_name] = -1
                 df[col_name] = df[col_name].map(int, na_action="ignore")
             elif CASE_SCHEMA[col_name]["dtype"] == "Bool":
-                df[col_name] = df[col_name].str.strip().str.lower().map({"yes": True, "no": False})
+                df[col_name] = (
+                    df[col_name].str.strip().str.lower().map({"yes": True, "no": False})
+                )
             elif CASE_SCHEMA[col_name]["dtype"] == "Date":
                 df.loc[df[col_name].isna(), col_name] = 0
                 df[col_name] = to_datetime(df[col_name]).dt.tz_localize("Asia/Manila")

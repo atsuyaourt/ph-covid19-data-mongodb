@@ -24,14 +24,26 @@ def update_loc_city_mun(db_loc_df, mongo_col=None):
         muni_city_df["type"] != "Waterbody",
     ].copy()
     muni_city_df = muni_city_df.sort_values("region")
-    muni_city_df["loc_name"] = (muni_city_df["name"] + " " + muni_city_df["province"]).str.lower()
+    muni_city_df["loc_name"] = (
+        muni_city_df["name"] + " " + muni_city_df["province"]
+    ).str.lower()
 
     db_loc_df["loc_name"] = (
-        (db_loc_df["cityMunRes"] + " " + db_loc_df["provRes"]).str.lower().str.replace(r"\([^)]*\)\ ", "", regex=True)
+        (db_loc_df["cityMunRes"] + " " + db_loc_df["provRes"])
+        .str.lower()
+        .str.replace(r"\([^)]*\)\ ", "", regex=True)
     )
 
     lookup_df = pd.DataFrame(
-        [{"regionRes": "", "provRes": "", "cityMunRes": "", "provResGeo": "", "cityMunResGeo": ""}]
+        [
+            {
+                "regionRes": "",
+                "provRes": "",
+                "cityMunRes": "",
+                "provResGeo": "",
+                "cityMunResGeo": "",
+            }
+        ]
     )
     if LOC_CITY_MUN_SAV.is_file():
         lookup_df = pd.read_csv(LOC_CITY_MUN_SAV)
@@ -48,28 +60,51 @@ def update_loc_city_mun(db_loc_df, mongo_col=None):
         if res.shape[0] == 0:
             res, _, _ = fz_process.extract(
                 r["loc_name"],
-                muni_city_df.loc[muni_city_df["region"] == r["regionResGeo"], "loc_name"],
+                muni_city_df.loc[
+                    muni_city_df["region"] == r["regionResGeo"], "loc_name"
+                ],
                 limit=1,
             )[0]
             if len(res) > 0:
-                res_prov, res_city_mun = muni_city_df.loc[muni_city_df["loc_name"] == res, ["province", "name"]].values[
-                    0
-                ]
+                res_prov, res_city_mun = muni_city_df.loc[
+                    muni_city_df["loc_name"] == res, ["province", "name"]
+                ].values[0]
         else:
             res_prov, res_city_mun = res.iloc[0].values
         db_loc_df.loc[db_loc_df["loc_name"] == r["loc_name"], "provResGeo"] = res_prov
-        db_loc_df.loc[db_loc_df["loc_name"] == r["loc_name"], "cityMunResGeo"] = res_city_mun
+        db_loc_df.loc[
+            db_loc_df["loc_name"] == r["loc_name"], "cityMunResGeo"
+        ] = res_city_mun
         if (mongo_col is not None) & (res_prov != "") & (res_city_mun != ""):
             mongo_col.update_many(
-                {"regionRes": r["regionRes"], "provRes": r["provRes"], "cityMunRes": r["cityMunRes"]},
-                {"$set": {"regionResGeo": r["regionResGeo"], "provResGeo": res_prov, "cityMunResGeo": res_city_mun}},
+                {
+                    "regionRes": r["regionRes"],
+                    "provRes": r["provRes"],
+                    "cityMunRes": r["cityMunRes"],
+                },
+                {
+                    "$set": {
+                        "regionResGeo": r["regionResGeo"],
+                        "provResGeo": res_prov,
+                        "cityMunResGeo": res_city_mun,
+                    }
+                },
             )
     if mongo_col is None:
         (
             pd.concat(
                 [
                     lookup_df,
-                    db_loc_df[["regionRes", "provRes", "cityMunRes", "regionResGeo", "provResGeo", "cityMunResGeo"]],
+                    db_loc_df[
+                        [
+                            "regionRes",
+                            "provRes",
+                            "cityMunRes",
+                            "regionResGeo",
+                            "provResGeo",
+                            "cityMunResGeo",
+                        ]
+                    ],
                 ],
                 ignore_index=True,
             )
@@ -90,7 +125,9 @@ def update_loc_province(db_loc_df, mongo_col=None):
     for i, r in tqdm(db_loc_df.iterrows(), total=db_loc_df.shape[0]):
         res_prov = ""
         res = lookup_df.loc[
-            (lookup_df["regionRes"] == r["regionRes"]) & (lookup_df["provRes"] == r["provRes"]), ["provResGeo"]
+            (lookup_df["regionRes"] == r["regionRes"])
+            & (lookup_df["provRes"] == r["provRes"]),
+            ["provResGeo"],
         ]
         if res.shape[0] == 0:
             res, _, _ = fz_process.extract(
@@ -168,15 +205,25 @@ def make_mappable():
                 "$and": [
                     {"cityMunRes": {"$exists": True}},
                     {"cityMunRes": {"$ne": ""}},
-                    {"$or": [{"cityMunResGeo": {"$exists": False}}, {"cityMunResGeo": ""}]},
+                    {
+                        "$or": [
+                            {"cityMunResGeo": {"$exists": False}},
+                            {"cityMunResGeo": ""},
+                        ]
+                    },
                 ]
             },
             {"_id": 0, "regionRes": 1, "provRes": 1, "cityMunRes": 1},
         )
     ).drop_duplicates()
-    db_loc_city_mun_df.loc[:, "regionResGeo"] = db_loc_city_mun_df["regionRes"].map(REGION_MAP)
+    db_loc_city_mun_df.loc[:, "regionResGeo"] = db_loc_city_mun_df["regionRes"].map(
+        REGION_MAP
+    )
     db_loc_city_mun_df = db_loc_city_mun_df.loc[
-        ~((db_loc_city_mun_df["regionResGeo"].isin(REGION_UNKNOWN)) | (db_loc_city_mun_df["regionResGeo"].isna()))
+        ~(
+            (db_loc_city_mun_df["regionResGeo"].isin(REGION_UNKNOWN))
+            | (db_loc_city_mun_df["regionResGeo"].isna())
+        )
     ].copy()
     update_loc_city_mun(db_loc_city_mun_df, mongo_col)
 
@@ -188,7 +235,12 @@ def make_mappable():
                     {"provRes": {"$ne": ""}},
                     {"$or": [{"cityMunRes": {"$exists": False}}, {"cityMunRes": ""}]},
                     {"$or": [{"provResGeo": {"$exists": False}}, {"provResGeo": ""}]},
-                    {"$or": [{"cityMunResGeo": {"$exists": False}}, {"cityMunResGeo": ""}]},
+                    {
+                        "$or": [
+                            {"cityMunResGeo": {"$exists": False}},
+                            {"cityMunResGeo": ""},
+                        ]
+                    },
                 ]
             },
             {"_id": 0, "regionRes": 1, "provRes": 1},
@@ -196,7 +248,10 @@ def make_mappable():
     ).drop_duplicates()
     db_loc_prov_df.loc[:, "regionResGeo"] = db_loc_prov_df["regionRes"].map(REGION_MAP)
     db_loc_prov_df = db_loc_prov_df.loc[
-        ~((db_loc_prov_df["regionResGeo"].isin(REGION_UNKNOWN)) | (db_loc_prov_df["regionResGeo"].isna()))
+        ~(
+            (db_loc_prov_df["regionResGeo"].isin(REGION_UNKNOWN))
+            | (db_loc_prov_df["regionResGeo"].isna())
+        )
     ].copy()
     update_loc_province(db_loc_prov_df, mongo_col)
 
@@ -208,15 +263,25 @@ def make_mappable():
                     {"regionRes": {"$ne": ""}},
                     {"$or": [{"cityMunRes": {"$exists": False}}, {"cityMunRes": ""}]},
                     {"$or": [{"provRes": {"$exists": False}}, {"provRes": ""}]},
-                    {"$or": [{"regionResGeo": {"$exists": False}}, {"regionResGeo": ""}]},
+                    {
+                        "$or": [
+                            {"regionResGeo": {"$exists": False}},
+                            {"regionResGeo": ""},
+                        ]
+                    },
                 ]
             },
             {"_id": 0, "regionRes": 1},
         )
     ).drop_duplicates()
-    db_loc_region_df.loc[:, "regionResGeo"] = db_loc_region_df["regionRes"].map(REGION_MAP)
+    db_loc_region_df.loc[:, "regionResGeo"] = db_loc_region_df["regionRes"].map(
+        REGION_MAP
+    )
     db_loc_region_df = db_loc_region_df.loc[
-        ~((db_loc_region_df["regionResGeo"].isin(REGION_UNKNOWN)) | (db_loc_region_df["regionResGeo"].isna()))
+        ~(
+            (db_loc_region_df["regionResGeo"].isin(REGION_UNKNOWN))
+            | (db_loc_region_df["regionResGeo"].isna())
+        )
     ].copy()
     update_loc_region(db_loc_region_df, mongo_col)
 
