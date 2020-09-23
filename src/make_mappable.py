@@ -19,6 +19,17 @@ LOC_PROV_SAV = Path("config/lookup/loc_prov.csv")
 
 
 def update_loc_city_mun(db_loc_df, mongo_col=None):
+    """Add mappable columns to DataFrame
+
+    Args:
+        db_loc_df (pandas.DataFrame): Input data. Should contain the following columns:
+                ["regionResGeo", "provRes", "cityMunRes"]
+        mongo_col (pymongo.Collection, optional): The collection to be updated.
+                Defaults to None.
+
+    Returns:
+        pandas.DataFrame: The updated data.
+    """
     muni_city_df = gpd.read_file(Path("input/shp/MuniCity/muni_city.shp"))
     muni_city_df = muni_city_df.loc[
         muni_city_df["type"] != "Waterbody",
@@ -115,6 +126,17 @@ def update_loc_city_mun(db_loc_df, mongo_col=None):
 
 
 def update_loc_province(db_loc_df, mongo_col=None):
+    """Add mappable columns to DataFrame
+
+    Args:
+        db_loc_df (pandas.DataFrame): Input data. Should contain the following columns:
+                ["regionResGeo", "provRes"]
+        mongo_col (pymongo.Collection, optional): The collection to be updated.
+                Defaults to None.
+
+    Returns:
+        pandas.DataFrame: The updated data.
+    """
     prov_df = gpd.read_file(Path("input/shp/Province/province.shp"))
     prov_df = prov_df.sort_values("region")
 
@@ -165,6 +187,13 @@ def update_loc_province(db_loc_df, mongo_col=None):
 
 
 def update_loc_region(db_loc_region_df, mongo_col):
+    """Add mappable columns to DataFrame
+
+    Args:
+        db_loc_df (pandas.DataFrame): Input data. Should contain the following columns:
+                ["regionResGeo"]
+        mongo_col (pymongo.Collection): The collection to be updated.
+    """
     tot = db_loc_region_df.shape[0]
     cnt = 0
     for i, r in db_loc_region_df.iterrows():
