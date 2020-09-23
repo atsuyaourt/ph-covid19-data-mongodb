@@ -83,7 +83,7 @@ def main():
     # region updated entries
     exist_df = pd.DataFrame(
         mongo_col.find(
-            {"caseCode": {"$in": new_df["caseCode"].to_list()}, "healthStatus": {"$not": {"$eq": "invalid"}}},
+            {"caseCode": {"$in": new_df["caseCode"].to_list()}, "healthStatus": {"$ne": "invalid"}},
             {"caseCode": 1, "healthStatus": 1, "createdAt": 1},
         )
     )
