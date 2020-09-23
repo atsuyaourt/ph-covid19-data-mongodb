@@ -51,6 +51,7 @@ def update_loc_city_mun(db_loc_df, mongo_col=None):
                 "regionRes": "",
                 "provRes": "",
                 "cityMunRes": "",
+                "regionResGeo": "",
                 "provResGeo": "",
                 "cityMunResGeo": "",
             }
@@ -59,11 +60,12 @@ def update_loc_city_mun(db_loc_df, mongo_col=None):
     if LOC_CITY_MUN_SAV.is_file():
         lookup_df = pd.read_csv(LOC_CITY_MUN_SAV)
 
+    print("matching location name...")
     for i, r in tqdm(db_loc_df.iterrows(), total=db_loc_df.shape[0]):
         res_prov = ""
         res_city_mun = ""
         res = lookup_df.loc[
-            (lookup_df["regionRes"] == r["regionRes"])
+            (lookup_df["regionResGeo"] == r["regionResGeo"])
             & (lookup_df["provRes"] == r["provRes"])
             & (lookup_df["cityMunRes"] == r["cityMunRes"]),
             ["provResGeo", "cityMunResGeo"],
@@ -87,6 +89,7 @@ def update_loc_city_mun(db_loc_df, mongo_col=None):
             db_loc_df["loc_name"] == r["loc_name"], "cityMunResGeo"
         ] = res_city_mun
         if (mongo_col is not None) & (res_prov != "") & (res_city_mun != ""):
+            print("writing to database...")
             mongo_col.update_many(
                 {
                     "regionRes": r["regionRes"],
@@ -140,10 +143,13 @@ def update_loc_province(db_loc_df, mongo_col=None):
     prov_df = gpd.read_file(Path("input/shp/Province/province.shp"))
     prov_df = prov_df.sort_values("region")
 
-    lookup_df = pd.DataFrame([{"regionRes": "", "provRes": "", "provResGeo": ""}])
+    lookup_df = pd.DataFrame(
+        [{"regionRes": "", "provRes": "", "regionResGeo": "", "provResGeo": ""}]
+    )
     if LOC_PROV_SAV.is_file():
         lookup_df = pd.read_csv(LOC_PROV_SAV)
 
+    print("matching location name...")
     for i, r in tqdm(db_loc_df.iterrows(), total=db_loc_df.shape[0]):
         res_prov = ""
         res = lookup_df.loc[
@@ -163,6 +169,7 @@ def update_loc_province(db_loc_df, mongo_col=None):
             res_prov = res.iloc[0].values[0]
         db_loc_df.loc[db_loc_df["provRes"] == r["provRes"], "provResGeo"] = res_prov
         if (mongo_col is not None) & (res_prov != ""):
+            print("writing to database...")
             mongo_col.update_many(
                 {
                     "regionRes": r["regionRes"],
