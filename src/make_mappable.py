@@ -45,6 +45,15 @@ def update_loc_city_mun(db_loc_df, mongo_col=None):
         .str.replace(r"\([^)]*\)\ ", "", regex=True)
     )
 
+    _db_loc_df = db_loc_df.drop_duplicates(
+        subset=[
+            "regionRes",
+            "provRes",
+            "cityMunRes",
+            "regionResGeo",
+        ]
+    )
+
     lookup_df = pd.DataFrame(
         [
             {
@@ -61,7 +70,7 @@ def update_loc_city_mun(db_loc_df, mongo_col=None):
         lookup_df = pd.read_csv(LOC_CITY_MUN_SAV)
 
     print("matching location name...")
-    for i, r in tqdm(db_loc_df.iterrows(), total=db_loc_df.shape[0]):
+    for i, r in tqdm(_db_loc_df.iterrows(), total=_db_loc_df.shape[0]):
         res_prov = ""
         res_city_mun = ""
         res = lookup_df.loc[
@@ -143,6 +152,14 @@ def update_loc_province(db_loc_df, mongo_col=None):
     prov_df = gpd.read_file(Path("input/shp/Province/province.shp"))
     prov_df = prov_df.sort_values("region")
 
+    _db_loc_df = db_loc_df.drop_duplicates(
+        subset=[
+            "regionRes",
+            "provRes",
+            "regionResGeo",
+        ]
+    )
+
     lookup_df = pd.DataFrame(
         [{"regionRes": "", "provRes": "", "regionResGeo": "", "provResGeo": ""}]
     )
@@ -150,7 +167,7 @@ def update_loc_province(db_loc_df, mongo_col=None):
         lookup_df = pd.read_csv(LOC_PROV_SAV)
 
     print("matching location name...")
-    for i, r in tqdm(db_loc_df.iterrows(), total=db_loc_df.shape[0]):
+    for i, r in tqdm(_db_loc_df.iterrows(), total=_db_loc_df.shape[0]):
         res_prov = ""
         res = lookup_df.loc[
             (lookup_df["regionRes"] == r["regionRes"])
