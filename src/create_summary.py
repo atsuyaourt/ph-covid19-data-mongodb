@@ -96,6 +96,11 @@ def main():
     print("Connection closed...")
     # endregion mongodb
 
+    # region write to csv
+    print("Creating a csv...")
+    stats_df.to_csv(Path(f"output/summary/case_stats_{date_str}.csv"), index=False)
+    # end region write to csv
+
 
 if __name__ == "__main__":
     main()
