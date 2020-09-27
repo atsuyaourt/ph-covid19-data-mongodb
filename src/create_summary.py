@@ -15,27 +15,6 @@ load_dotenv()
 
 
 def main():
-    # region mongodb
-    print("Connecting to mongodb...")
-    mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
-    if "default" not in mongo_client.list_database_names():
-        print("Database 'default' not found... exiting...")
-        mongo_client.close()
-        sys.exit()
-    print("using 'default' database.")
-    mongo_db = mongo_client["default"]
-    if "cases.stats" not in mongo_db.list_collection_names():
-        print("Collection 'cases.stats' not found... exiting...")
-        mongo_client.close()
-        sys.exit()
-    mongo_col = mongo_db["cases.stats"]
-    print("using 'case.stats' collectiom.")
-    print("Connection successful...")
-    # endregion mongodb
-
-    # drop collection first
-    mongo_col.drop()
-
     in_csvs = list(Path("input/csv").glob("*case_info.csv"))
     in_csvs.sort()
     in_csv = in_csvs[-1]
@@ -87,11 +66,35 @@ def main():
     )
     stats_df["createdAt"] = new_date
 
+    # region mongodb
+    print("Connecting to mongodb...")
+    mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
+    if "default" not in mongo_client.list_database_names():
+        print("Database 'default' not found... exiting...")
+        mongo_client.close()
+        sys.exit()
+    print("using 'default' database.")
+    mongo_db = mongo_client["default"]
+    if "cases.stats" not in mongo_db.list_collection_names():
+        print("Collection 'cases.stats' not found... exiting...")
+        mongo_client.close()
+        sys.exit()
+    mongo_col = mongo_db["cases.stats"]
+    print("using 'case.stats' collectiom.")
+    print("Connection successful...")
+
+    # drop collection first
+    print("Removing old data...")
+    mongo_col.drop()
+
     # add new data to database
+    print("Adding new data...")
     data_dict = stats_df.to_dict("records")
     mongo_col.insert_many(data_dict)
 
     mongo_client.close()
+    print("Connection closed...")
+    # endregion mongodb
 
 
 if __name__ == "__main__":
