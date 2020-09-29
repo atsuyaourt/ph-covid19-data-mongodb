@@ -5,7 +5,7 @@ Contains scripts for processing COVID-19 data from the [DOH data drop](http://bi
 Data updated daily since `June 9, 2020`.
 
 ## Example API:
-* Live: https://phcovid19api.emiliogozo.me/v1/docs
+* Live: https://phcovid19api.carpe-datum.live/v1/docs/
 * Github: https://github.com/emiliogozo/ph-covid19-api
 
 
