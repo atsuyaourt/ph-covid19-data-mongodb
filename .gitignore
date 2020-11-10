@@ -143,4 +143,5 @@ dmypy.json
 .vscode
 input/*
 !input/shp
+output
 db
