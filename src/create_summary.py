@@ -25,19 +25,11 @@ def main():
     new_date = pd.to_datetime(date_str).tz_localize("Asia/Manila")
     print("Date: {}".format(new_date))
 
-    stats_df = (
-        curr_df.groupby(
-            ["regionRes", "provRes", "cityMunRes", "sex", "age", "healthStatus"]
-        )["caseCode"]
-        .nunique()
-        .reset_index()
-    )
-
     # region with cityMun
-    stats_df.loc[:, "regionResGeo"] = stats_df["regionRes"].map(REGION_MAP)
-    with_city_mun_df = stats_df.loc[
-        (~((stats_df["cityMunRes"] == "") | (stats_df["cityMunRes"].isna())))
-        & (~(stats_df["regionResGeo"].isin(REGION_UNKNOWN)))
+    curr_df.loc[:, "regionResGeo"] = curr_df["regionRes"].map(REGION_MAP)
+    with_city_mun_df = curr_df.loc[
+        (~((curr_df["cityMunRes"] == "") | (curr_df["cityMunRes"].isna())))
+        & (~(curr_df["regionResGeo"].isin(REGION_UNKNOWN)))
     ].copy()
     with_city_mun_idx = with_city_mun_df.index.to_list()
 
@@ -45,26 +37,35 @@ def main():
     # endregion with cityMun
 
     # region with province
-    with_prov_df = stats_df.loc[
-        (~(stats_df.index.isin(with_city_mun_idx)))
-        & (~((stats_df["provRes"] == "") | (stats_df["provRes"].isna())))
-        & (~(stats_df["regionResGeo"].isin(REGION_UNKNOWN)))
+    with_prov_df = curr_df.loc[
+        (~(curr_df.index.isin(with_city_mun_idx)))
+        & (~((curr_df["provRes"] == "") | (curr_df["provRes"].isna())))
+        & (~(curr_df["regionResGeo"].isin(REGION_UNKNOWN)))
     ].copy()
     with_prov_idx = with_prov_df.index.to_list()
 
     with_prov_df = update_loc_province(with_prov_df)
     # endregion with province
 
+
     stats_df = pd.concat(
         [
             with_city_mun_df,
             with_prov_df,
-            stats_df.loc[
-                ~(stats_df.index.isin(with_city_mun_idx + with_prov_idx))
+            curr_df.loc[
+                ~(curr_df.index.isin(with_city_mun_idx + with_prov_idx))
             ].copy(),
         ]
     )
+    stats_df = (
+        stats_df.groupby(
+            ["regionResGeo", "provResGeo", "sex", "age", "healthStatus"]
+        )["caseCode"]
+        .nunique()
+        .reset_index()
+    )
     stats_df["createdAt"] = new_date
+    stats_df = stats_df.rename(columns={"caseCode": "count"})
 
     # region mongodb
     print("Connecting to mongodb...")
@@ -75,17 +76,15 @@ def main():
         sys.exit()
     print("using 'default' database.")
     mongo_db = mongo_client["default"]
-    if "cases.stats" not in mongo_db.list_collection_names():
-        print("Collection 'cases.stats' not found... exiting...")
-        mongo_client.close()
-        sys.exit()
-    mongo_col = mongo_db["cases.stats"]
-    print("using 'case.stats' collectiom.")
-    print("Connection successful...")
 
-    # drop collection first
-    print("Removing old data...")
-    mongo_col.drop()
+    print("using 'cases.stats' collectiom.")
+    mongo_col = mongo_db["cases.stats"]
+    if "cases.stats" in mongo_db.list_collection_names():
+        # drop collection first
+        print("Removing old data...")
+        mongo_col.drop()
+   
+    print("Connection successful...")
 
     # add new data to database
     print("Adding new data...")
