@@ -6,7 +6,7 @@ from pymongo import MongoClient
 
 import pandas as pd
 
-from helpers import prep_data
+from models import prep_cases_df
 
 load_dotenv()
 
@@ -19,7 +19,7 @@ def main():
         sys.exit()
     in_df = pd.read_csv(in_csv)
     # prep data
-    in_df = prep_data(in_df)
+    in_df = prep_cases_df(in_df)
 
     date_str = in_csv.name.split("_")[0]
     in_df["createdAt"] = pd.to_datetime(date_str).tz_localize("Asia/Manila")

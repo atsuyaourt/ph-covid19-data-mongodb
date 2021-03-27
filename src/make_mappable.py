@@ -4,12 +4,12 @@ from tqdm import tqdm
 from pathlib import Path
 from dotenv import load_dotenv
 from pymongo import MongoClient
+from bson.objectid import ObjectId
 
 import pandas as pd
 import geopandas as gpd
 
 from fuzzywuzzy import process as fz_process
-
 from models import REGION_MAP, REGION_UNKNOWN
 
 load_dotenv()
@@ -18,25 +18,26 @@ LOC_CITY_MUN_SAV = Path("config/lookup/loc_city_mun.csv")
 LOC_PROV_SAV = Path("config/lookup/loc_prov.csv")
 
 
-def update_loc_city_mun(db_loc_df, mongo_col=None):
+def update_loc_city_mun(db_loc_df):
     """Add mappable columns to DataFrame
 
     Args:
         db_loc_df (pandas.DataFrame): Input data. Should contain the following columns:
                 ["regionResGeo", "provRes", "cityMunRes"]
-        mongo_col (pymongo.Collection, optional): The collection to be updated.
-                Defaults to None.
 
     Returns:
         pandas.DataFrame: The updated data.
     """
-    muni_city_df = gpd.read_file(Path("input/shp/MuniCity/muni_city.shp"))
-    muni_city_df = muni_city_df.loc[
-        muni_city_df["type"] != "Waterbody",
-    ].copy()
+    # region mongodb
+    mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
+    mongo_db = mongo_client["defaultDb"]
+    mongo_col = mongo_db["ph_loc"]
+    # endregion mongodb
+
+    muni_city_df = pd.DataFrame(list(mongo_col.find({"type": "muni_city"})))
     muni_city_df = muni_city_df.sort_values("region")
     muni_city_df["loc_name"] = (
-        muni_city_df["name"] + " " + muni_city_df["province"]
+        muni_city_df["muniCity"] + " " + muni_city_df["province"]
     ).str.lower()
 
     db_loc_df["loc_name"] = (
@@ -61,23 +62,22 @@ def update_loc_city_mun(db_loc_df, mongo_col=None):
                 "provRes": "",
                 "cityMunRes": "",
                 "regionResGeo": "",
-                "provResGeo": "",
-                "cityMunResGeo": "",
+                "locId": "",
             }
         ]
     )
     if LOC_CITY_MUN_SAV.is_file():
         lookup_df = pd.read_csv(LOC_CITY_MUN_SAV)
+        lookup_df["locId"] = lookup_df["locId"].map(ObjectId, na_action="ignore")
 
     print("matching location name...")
     for i, r in tqdm(_db_loc_df.iterrows(), total=_db_loc_df.shape[0]):
-        res_prov = ""
-        res_city_mun = ""
+        res_loc_id = ""
         res = lookup_df.loc[
             (lookup_df["regionResGeo"] == r["regionResGeo"])
             & (lookup_df["provRes"] == r["provRes"])
             & (lookup_df["cityMunRes"] == r["cityMunRes"]),
-            ["provResGeo", "cityMunResGeo"],
+            "locId",
         ]
         if res.shape[0] == 0:
             res, _, _ = fz_process.extract(
@@ -88,68 +88,40 @@ def update_loc_city_mun(db_loc_df, mongo_col=None):
                 limit=1,
             )[0]
             if len(res) > 0:
-                res_prov, res_city_mun = muni_city_df.loc[
-                    muni_city_df["loc_name"] == res, ["province", "name"]
+                res_loc_id = muni_city_df.loc[
+                    muni_city_df["loc_name"] == res, "_id"
                 ].values[0]
         else:
-            res_prov, res_city_mun = res.iloc[0].values
-        db_loc_df.loc[db_loc_df["loc_name"] == r["loc_name"], "provResGeo"] = res_prov
-        db_loc_df.loc[
-            db_loc_df["loc_name"] == r["loc_name"], "cityMunResGeo"
-        ] = res_city_mun
-        if (mongo_col is not None) & (res_prov != "") & (res_city_mun != ""):
-            print("writing to database...")
-            mongo_col.update_many(
-                {
-                    "regionRes": r["regionRes"],
-                    "provRes": r["provRes"],
-                    "cityMunRes": r["cityMunRes"],
-                },
-                {
-                    "$set": {
-                        "regionResGeo": r["regionResGeo"],
-                        "provResGeo": res_prov,
-                        "cityMunResGeo": res_city_mun,
-                    }
-                },
-            )
-    if mongo_col is None:
-        (
-            pd.concat(
-                [
-                    lookup_df,
-                    db_loc_df[
-                        [
-                            "regionRes",
-                            "provRes",
-                            "cityMunRes",
-                            "regionResGeo",
-                            "provResGeo",
-                            "cityMunResGeo",
-                        ]
-                    ],
-                ],
-                ignore_index=True,
-            )
-            .drop_duplicates()
-            .dropna()
-        ).to_csv(LOC_CITY_MUN_SAV, index=False)
-        return db_loc_df.drop(columns=["loc_name"], errors="ignore")
+            res_loc_id = res.values[0]
+        db_loc_df.loc[db_loc_df["loc_name"] == r["loc_name"], "locId"] = res_loc_id
+
+    pd.concat(
+        [
+            lookup_df,
+            db_loc_df[["regionRes", "provRes", "cityMunRes", "regionResGeo", "locId"]],
+        ],
+        ignore_index=True,
+    ).drop_duplicates().dropna().to_csv(LOC_CITY_MUN_SAV, index=False)
+    return db_loc_df.drop(columns=["loc_name", "regionResGeo"], errors="ignore")
 
 
-def update_loc_province(db_loc_df, mongo_col=None):
+def update_loc_province(db_loc_df):
     """Add mappable columns to DataFrame
 
     Args:
         db_loc_df (pandas.DataFrame): Input data. Should contain the following columns:
                 ["regionResGeo", "provRes"]
-        mongo_col (pymongo.Collection, optional): The collection to be updated.
-                Defaults to None.
 
     Returns:
         pandas.DataFrame: The updated data.
     """
-    prov_df = gpd.read_file(Path("input/shp/Province/province.shp"))
+    # region mongodb
+    mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
+    mongo_db = mongo_client["defaultDb"]
+    mongo_col = mongo_db["ph_loc"]
+    # endregion mongodb
+
+    prov_df = pd.DataFrame(list(mongo_col.find({"type": "province"})))
     prov_df = prov_df.sort_values("region")
 
     _db_loc_df = db_loc_df.drop_duplicates(
@@ -161,18 +133,19 @@ def update_loc_province(db_loc_df, mongo_col=None):
     )
 
     lookup_df = pd.DataFrame(
-        [{"regionRes": "", "provRes": "", "regionResGeo": "", "provResGeo": ""}]
+        [{"regionRes": "", "provRes": "", "regionResGeo": "", "locId": ""}]
     )
     if LOC_PROV_SAV.is_file():
         lookup_df = pd.read_csv(LOC_PROV_SAV)
+        lookup_df["locId"] = lookup_df["locId"].map(ObjectId, na_action="ignore")
 
     print("matching location name...")
     for i, r in tqdm(_db_loc_df.iterrows(), total=_db_loc_df.shape[0]):
-        res_prov = ""
+        res_loc_id = ""
         res = lookup_df.loc[
             (lookup_df["regionRes"] == r["regionRes"])
             & (lookup_df["provRes"] == r["provRes"]),
-            ["provResGeo"],
+            "locId",
         ]
         if res.shape[0] == 0:
             res, _, _ = fz_process.extract(
@@ -181,36 +154,22 @@ def update_loc_province(db_loc_df, mongo_col=None):
                 limit=1,
             )[0]
             if len(res) > 0:
-                res_prov = prov_df.loc[prov_df["province"] == res, "province"].values[0]
+                res_loc_id = prov_df.loc[prov_df["province"] == res, "_id"].values[0]
         else:
-            res_prov = res.iloc[0].values[0]
-        db_loc_df.loc[db_loc_df["provRes"] == r["provRes"], "provResGeo"] = res_prov
-        if (mongo_col is not None) & (res_prov != ""):
-            print("writing to database...")
-            mongo_col.update_many(
-                {
-                    "regionRes": r["regionRes"],
-                    "provRes": r["provRes"],
-                    "$or": [{"cityMunRes": {"$exists": False}}, {"cityMunRes": ""}],
-                },
-                {"$set": {"regionResGeo": r["regionResGeo"], "provResGeo": res_prov}},
-            )
-    if mongo_col is None:
-        (
-            pd.concat(
-                [
-                    lookup_df,
-                    db_loc_df[["regionRes", "provRes", "regionResGeo", "provResGeo"]],
-                ],
-                ignore_index=True,
-            )
-            .drop_duplicates()
-            .dropna()
-        ).to_csv(LOC_PROV_SAV, index=False)
-        return db_loc_df
+            res_loc_id = res.values[0]
+        db_loc_df.loc[db_loc_df["provRes"] == r["provRes"], "locId"] = res_loc_id
+
+    pd.concat(
+        [
+            lookup_df,
+            db_loc_df[["regionRes", "provRes", "regionResGeo", "locId"]],
+        ],
+        ignore_index=True,
+    ).drop_duplicates().dropna().to_csv(LOC_PROV_SAV, index=False)
+    return db_loc_df.drop(columns=["regionResGeo"], errors="ignore")
 
 
-def update_loc_region(db_loc_region_df, mongo_col):
+def update_loc_region(db_loc_df):
     """Add mappable columns to DataFrame
 
     Args:
@@ -218,21 +177,27 @@ def update_loc_region(db_loc_region_df, mongo_col):
                 ["regionResGeo"]
         mongo_col (pymongo.Collection): The collection to be updated.
     """
-    tot = db_loc_region_df.shape[0]
-    cnt = 0
-    for i, r in db_loc_region_df.iterrows():
-        cnt += 1
-        print("{:.2f} %".format(100.0 * cnt / tot))
-        mongo_col.update_many(
-            {
-                "$and": [
-                    {"regionRes": r["regionRes"]},
-                    {"$or": [{"provRes": {"$exists": False}}, {"provRes": ""}]},
-                    {"$or": [{"cityMunRes": {"$exists": False}}, {"cityMunRes": ""}]},
-                ],
-            },
-            {"$set": {"regionResGeo": r["regionResGeo"]}},
-        )
+    # region mongodb
+    mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
+    mongo_db = mongo_client["defaultDb"]
+    mongo_col = mongo_db["ph_loc"]
+    # endregion mongodb
+
+    region_df = pd.DataFrame(list(mongo_col.find({"type": "region"})))
+    region_df = region_df.sort_values("region")
+
+    _db_loc_df = db_loc_df.drop_duplicates(subset=["regionResGeo"])
+
+    print("matching location name...")
+    for i, r in tqdm(_db_loc_df.iterrows(), total=_db_loc_df.shape[0]):
+        res_loc_id = region_df.loc[
+            region_df["region"] == r["regionResGeo"],
+            "_id",
+        ].values[0]
+        db_loc_df.loc[
+            db_loc_df["regionResGeo"] == r["regionResGeo"], "locId"
+        ] = res_loc_id
+    return db_loc_df.drop(columns=["regionResGeo"], errors="ignore")
 
 
 def make_mappable():
