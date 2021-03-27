@@ -6,9 +6,8 @@ from pymongo import MongoClient
 
 import pandas as pd
 
-from helpers import prep_data
-from models import CASE_SCHEMA, REGION_MAP, REGION_UNKNOWN
-from make_mappable import update_loc_city_mun, update_loc_province
+from models import CASE_SCHEMA, REGION_MAP, REGION_UNKNOWN, prep_cases_df
+from make_mappable import update_loc_city_mun, update_loc_province, update_loc_region
 
 load_dotenv()
 
@@ -17,11 +16,11 @@ def main():
     # region mongodb
     print("Connecting to mongodb...")
     mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
-    if "default" not in mongo_client.list_database_names():
+    if "defaultDb" not in mongo_client.list_database_names():
         print("Database not found... exiting...")
         mongo_client.close()
         sys.exit()
-    mongo_db = mongo_client["default"]
+    mongo_db = mongo_client["defaultDb"]
     if "cases" not in mongo_db.list_collection_names():
         print("Collection not found... exiting...")
         mongo_client.close()
@@ -34,7 +33,7 @@ def main():
     in_csvs.sort()
     in_csv = in_csvs[-1]
     curr_df = pd.read_csv(in_csv)
-    curr_df = prep_data(curr_df)
+    curr_df = prep_cases_df(curr_df)
 
     date_str = in_csv.name.split("_")[0]
     new_date = pd.to_datetime(date_str).tz_localize("Asia/Manila")
@@ -42,7 +41,7 @@ def main():
 
     in_csv0 = in_csvs[-2]
     prev_df = pd.read_csv(in_csv0)
-    prev_df = prep_data(prev_df)
+    prev_df = prep_cases_df(prev_df)
 
     new_cols = list(set(curr_df.columns) - set(prev_df.columns))
     if not all([col_name in CASE_SCHEMA.keys() for col_name in new_cols]):
@@ -62,9 +61,6 @@ def main():
 
     curr_cnt = mongo_col.aggregate(
         [
-            {"$match": {"healthStatus": {"$ne": "invalid"}}},
-            {"$sort": {"createdAt": -1}},
-            {"$group": {"_id": "$caseCode"}},
             {"$group": {"_id": 1, "count": {"$sum": 1}}},
         ]
     ).next()["count"]
@@ -92,26 +88,37 @@ def main():
     with_prov_idx = new_with_prov_df.index.to_list()
     new_with_prov_df = update_loc_province(new_with_prov_df)
 
+    new_with_reg_df = new_df.loc[
+        (~(new_df.index.isin(with_city_mun_idx + with_prov_idx)))
+        & (~((new_df["regionRes"] == "") | (new_df["regionRes"].isna())))
+        & (~(new_df["regionResGeo"].isin(REGION_UNKNOWN)))
+    ].copy()
+    with_reg_idx = new_with_reg_df.index.to_list()
+    new_with_reg_df = update_loc_region(new_with_reg_df)
+
+    new_no_loc_df = new_df.loc[
+        ~(new_df.index.isin(with_city_mun_idx + with_prov_idx + with_reg_idx))
+    ].copy()
+    new_no_loc_df = new_no_loc_df.drop(columns=["regionResGeo"], errors="ignore").copy()
+
     new_df = pd.concat(
         [
             new_with_city_mun_df,
             new_with_prov_df,
-            new_df.loc[~(new_df.index.isin(with_city_mun_idx + with_prov_idx))].copy(),
+            new_with_reg_df,
+            new_no_loc_df,
         ]
     )
 
     # region updated entries
     exist_df = pd.DataFrame(
         mongo_col.find(
-            {
-                "caseCode": {"$in": new_df["caseCode"].to_list()},
-                "healthStatus": {"$ne": "invalid"},
-            },
-            {"caseCode": 1, "healthStatus": 1, "createdAt": 1},
+            {"caseCode": {"$in": new_df["caseCode"].to_list()}},
+            {"caseCode": 1, "createdAt": 1},
         )
     )
 
-    update_df = exist_df.merge(new_df, on=["caseCode", "healthStatus"])
+    update_df = exist_df.merge(new_df, on=["caseCode"])
     if update_df.shape[0] > 0:
         update_ids = update_df["_id"].to_list()
         mongo_col.delete_many({"_id": {"$in": update_ids}})
@@ -124,11 +131,7 @@ def main():
 
     # region new entries
     if update_df.shape[0] > 0:
-        new_df = new_df.loc[
-            ~(new_df["caseCode"] + "_" + new_df["healthStatus"]).isin(
-                update_df["caseCode"] + "_" + update_df["healthStatus"]
-            )
-        ].copy()
+        new_df = new_df.loc[~new_df["caseCode"].isin(update_df["caseCode"])].copy()
 
     if new_df.shape[0] > 0:
         new_df["createdAt"] = new_date
@@ -139,29 +142,20 @@ def main():
 
     del_case_code = list(set(prev_df["caseCode"]) - set(curr_df["caseCode"]))
     if len(del_case_code) > 0:
-        mongo_col.update_many(
-            {"caseCode": {"$in": del_case_code}},
-            {
-                "$set": {
-                    "deletedAt": new_date,
-                    "removalType": "duplicate",
-                    "healthStatus": "invalid",
-                }
-            },
-        )
+        mongo_col.delete_many({"_id": {"$in": del_case_code}})
         print("Deleted entries: {}".format(len(del_case_code)))
 
     new_cnt = mongo_col.aggregate(
         [
-            {"$match": {"healthStatus": {"$ne": "invalid"}}},
-            {"$sort": {"createdAt": -1}},
-            {"$group": {"_id": "$caseCode"}},
             {"$group": {"_id": 1, "count": {"$sum": 1}}},
         ]
     ).next()["count"]
 
-    print("New CSV count: {}".format(curr_df.shape[0]))
-    print("New DB count: {}".format(new_cnt))
+    if new_cnt != (curr_df.shape[0] - len(del_case_code)):
+        print("New CSV count: {}".format(curr_df.shape[0] - len(del_case_code)))
+        print("New DB count: {}".format(new_cnt))
+    else:
+        print("New count: {}".format(new_cnt))
 
     mongo_client.close()
 
