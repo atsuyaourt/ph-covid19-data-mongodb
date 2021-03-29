@@ -13,7 +13,7 @@ load_dotenv()
 
 def main():
     # Load initial data
-    in_csv = Path("input/csv") / "20210325_case_info.csv"
+    in_csv = Path("input/csv") / "20200609_case_info.csv"
     if not in_csv.is_file():
         print("Error: Input file missing")
         sys.exit()
@@ -33,7 +33,7 @@ def main():
         # drop collection first
         print("Removing old data...")
         mongo_col.drop()
-    
+
     print("Connection successful...")
     # endregion mongodb
 
