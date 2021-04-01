@@ -32,7 +32,7 @@ def main():
     in_csvs = list(Path("input/csv").glob("*case_info.csv"))
     in_csvs.sort()
     in_csv = in_csvs[-1]
-    curr_df = pd.read_csv(in_csv)
+    curr_df = pd.read_csv(in_csv, low_memory=False)
     curr_df = prep_cases_df(curr_df)
 
     date_str = in_csv.name.split("_")[0]
@@ -40,7 +40,7 @@ def main():
     print("Date: {}".format(new_date))
 
     in_csv0 = in_csvs[-2]
-    prev_df = pd.read_csv(in_csv0)
+    prev_df = pd.read_csv(in_csv0, low_memory=False)
     prev_df = prep_cases_df(prev_df)
 
     new_cols = list(set(curr_df.columns) - set(prev_df.columns))
@@ -49,20 +49,18 @@ def main():
         mongo_client.close()
         sys.exit()
 
-    if len(new_cols) > 0:
-        print("Added new columns")
-        defaults = {
-            k: v["default"]
-            for col_name in new_cols
-            for k, v in CASE_SCHEMA.items()
-            if k == col_name
-        }
-        mongo_col.update_many({}, {"$set": defaults})
+    # if len(new_cols) > 0:
+    #     print("Added new columns")
+    #     defaults = {
+    #         k: v["default"]
+    #         for col_name in new_cols
+    #         for k, v in CASE_SCHEMA.items()
+    #         if k == col_name
+    #     }
+    #     mongo_col.update_many({}, {"$set": defaults})
 
     curr_cnt = mongo_col.aggregate(
-        [
-            {"$group": {"_id": 1, "count": {"$sum": 1}}},
-        ]
+        [{"$group": {"_id": 1, "count": {"$sum": 1}}}]
     ).next()["count"]
     print("Current count: {}".format(curr_cnt))
 
@@ -110,6 +108,32 @@ def main():
         ]
     )
 
+    # region new cases stats
+    new_stats_df = (
+        new_df.groupby(["locId", "healthStatus", "age", "sex"])["caseCode"]
+        .count()
+        .reset_index()
+    )
+    new_stats_df = new_stats_df.rename(columns={"caseCode": "count"})
+    new_stats_df["dateRep"] = new_date
+    # endregion new cases stats
+
+    # region deleted entries
+    del_case_code = list(set(prev_df["caseCode"]) - set(curr_df["caseCode"]))
+    del_df = pd.DataFrame(
+        list(mongo_col.find({"caseCode": {"$in": del_case_code}}))
+    ).drop(columns=["_id"], errors="ignore")
+    if del_df.shape[0] > 0:
+        mongo_col.delete_many({"caseCode": {"$in": del_case_code}})
+        del_df["deletedAt"] = new_date
+        for col_name in del_df.select_dtypes(include=["datetime64"]).columns:
+            del_df[col_name] = del_df[col_name].fillna(0)
+        data_dict = del_df.to_dict("records")
+        mongo_col_del = mongo_db["cases.deleted"]
+        mongo_col_del.insert_many(data_dict)
+        print("Deleted entries: {}".format(len(del_case_code)))
+    # region deleted entries
+
     # region updated entries
     exist_df = pd.DataFrame(
         mongo_col.find(
@@ -140,22 +164,16 @@ def main():
         print("New entries: {}".format(new_df.shape[0]))
     # endregion new entries
 
-    del_case_code = list(set(prev_df["caseCode"]) - set(curr_df["caseCode"]))
-    if len(del_case_code) > 0:
-        mongo_col.delete_many({"_id": {"$in": del_case_code}})
-        print("Deleted entries: {}".format(len(del_case_code)))
+    # region store new cases stats
+    mongo_nstats_col = mongo_db["cases.newStats"]
+    data_dict = new_stats_df.to_dict("records")
+    mongo_nstats_col.insert_many(data_dict)
+    # endregion store new cases stats
 
     new_cnt = mongo_col.aggregate(
-        [
-            {"$group": {"_id": 1, "count": {"$sum": 1}}},
-        ]
+        [{"$group": {"_id": 1, "count": {"$sum": 1}}}]
     ).next()["count"]
-
-    if new_cnt != (curr_df.shape[0] - len(del_case_code)):
-        print("New CSV count: {}".format(curr_df.shape[0] - len(del_case_code)))
-        print("New DB count: {}".format(new_cnt))
-    else:
-        print("New count: {}".format(new_cnt))
+    print("New count: {}".format(new_cnt))
 
     mongo_client.close()
 
