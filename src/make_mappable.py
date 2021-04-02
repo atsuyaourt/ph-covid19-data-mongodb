@@ -183,7 +183,9 @@ def update_loc_region(db_loc_df):
     mongo_col = mongo_db["ph_loc"]
     # endregion mongodb
 
-    region_df = pd.DataFrame(list(mongo_col.find({"type": "region"})))
+    region_df = pd.DataFrame(
+        list(mongo_col.find({"type": {"$in": ["region", "misc"]}}))
+    )
     region_df = region_df.sort_values("region")
 
     _db_loc_df = db_loc_df.drop_duplicates(subset=["regionResGeo"])
@@ -218,17 +220,16 @@ def make_mappable(df):
     with_prov_idx = with_prov_df.index.to_list()
     with_prov_df = update_loc_province(with_prov_df)
 
-    with_reg_df = _df.loc[
-        (~(_df.index.isin(with_city_mun_idx + with_prov_idx)))
-        & (~((_df["regionRes"] == "") | (_df["regionRes"].isna())))
-        & (~(_df["regionResGeo"].isin(REGION_UNKNOWN)))
-    ].copy()
+    with_reg_df = _df.loc[~(_df.index.isin(with_city_mun_idx + with_prov_idx))].copy()
+    with_reg_df["regionRes"] = with_reg_df["regionRes"].fillna("")
     with_reg_idx = with_reg_df.index.to_list()
     with_reg_df = update_loc_region(with_reg_df)
 
     no_loc_df = _df.loc[
         ~(_df.index.isin(with_city_mun_idx + with_prov_idx + with_reg_idx))
     ].copy()
+    if no_loc_df.shape[0] > 0:
+        print(no_loc_df["regionRes"].unique())
     no_loc_df = no_loc_df.drop(columns=["regionResGeo"], errors="ignore").copy()
 
     return pd.concat(
