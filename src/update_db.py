@@ -6,13 +6,13 @@ from pymongo import MongoClient
 
 import pandas as pd
 
-from models import CASE_SCHEMA, REGION_MAP, REGION_UNKNOWN, prep_cases_df
-from make_mappable import update_loc_city_mun, update_loc_province, update_loc_region
-
-load_dotenv()
+from models import CASE_SCHEMA, prep_cases_df
+from make_mappable import make_mappable
 
 
 def main():
+    load_dotenv()
+
     # region mongodb
     print("Connecting to mongodb...")
     mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
@@ -70,43 +70,7 @@ def main():
     ).drop_duplicates(keep=False)
     new_df = curr_df.loc[curr_df["caseCode"].isin(new_df["caseCode"])].copy()
 
-    new_df.loc[:, "regionResGeo"] = new_df["regionRes"].map(REGION_MAP)
-    new_with_city_mun_df = new_df.loc[
-        (~((new_df["cityMunRes"] == "") | (new_df["cityMunRes"].isna())))
-        & (~(new_df["regionResGeo"].isin(REGION_UNKNOWN)))
-    ].copy()
-    with_city_mun_idx = new_with_city_mun_df.index.to_list()
-    new_with_city_mun_df = update_loc_city_mun(new_with_city_mun_df)
-
-    new_with_prov_df = new_df.loc[
-        (~(new_df.index.isin(with_city_mun_idx)))
-        & (~((new_df["provRes"] == "") | (new_df["provRes"].isna())))
-        & (~(new_df["regionResGeo"].isin(REGION_UNKNOWN)))
-    ].copy()
-    with_prov_idx = new_with_prov_df.index.to_list()
-    new_with_prov_df = update_loc_province(new_with_prov_df)
-
-    new_with_reg_df = new_df.loc[
-        (~(new_df.index.isin(with_city_mun_idx + with_prov_idx)))
-        & (~((new_df["regionRes"] == "") | (new_df["regionRes"].isna())))
-        & (~(new_df["regionResGeo"].isin(REGION_UNKNOWN)))
-    ].copy()
-    with_reg_idx = new_with_reg_df.index.to_list()
-    new_with_reg_df = update_loc_region(new_with_reg_df)
-
-    new_no_loc_df = new_df.loc[
-        ~(new_df.index.isin(with_city_mun_idx + with_prov_idx + with_reg_idx))
-    ].copy()
-    new_no_loc_df = new_no_loc_df.drop(columns=["regionResGeo"], errors="ignore").copy()
-
-    new_df = pd.concat(
-        [
-            new_with_city_mun_df,
-            new_with_prov_df,
-            new_with_reg_df,
-            new_no_loc_df,
-        ]
-    )
+    new_df = make_mappable(new_df)
 
     # region new cases stats
     new_stats_df = (

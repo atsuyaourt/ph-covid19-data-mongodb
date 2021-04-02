@@ -200,108 +200,45 @@ def update_loc_region(db_loc_df):
     return db_loc_df.drop(columns=["regionResGeo"], errors="ignore")
 
 
-def make_mappable():
-    # region mongodb
-    print("Connecting to mongodb...")
-    mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
-    if "default" not in mongo_client.list_database_names():
-        print("Database not found... exiting...")
-        mongo_client.close()
-        sys.exit()
-    mongo_db = mongo_client["default"]
-    if "cases" not in mongo_db.list_collection_names():
-        print("Collection not found... exiting...")
-        mongo_client.close()
-        sys.exit()
-    mongo_col = mongo_db["cases"]
-    print("Connection successful...")
-    # endregion mongodb
+def make_mappable(df):
+    _df = df.copy()
+    _df.loc[:, "regionResGeo"] = _df["regionRes"].map(REGION_MAP)
+    with_city_mun_df = _df.loc[
+        (~((_df["cityMunRes"] == "") | (_df["cityMunRes"].isna())))
+        & (~(_df["regionResGeo"].isin(REGION_UNKNOWN)))
+    ].copy()
+    with_city_mun_idx = with_city_mun_df.index.to_list()
+    with_city_mun_df = update_loc_city_mun(with_city_mun_df)
 
-    db_loc_city_mun_df = pd.DataFrame(
-        mongo_col.find(
-            {
-                "$and": [
-                    {"cityMunRes": {"$exists": True}},
-                    {"cityMunRes": {"$ne": ""}},
-                    {
-                        "$or": [
-                            {"cityMunResGeo": {"$exists": False}},
-                            {"cityMunResGeo": ""},
-                        ]
-                    },
-                ]
-            },
-            {"_id": 0, "regionRes": 1, "provRes": 1, "cityMunRes": 1},
-        )
-    ).drop_duplicates()
-    db_loc_city_mun_df.loc[:, "regionResGeo"] = db_loc_city_mun_df["regionRes"].map(
-        REGION_MAP
+    with_prov_df = _df.loc[
+        (~(_df.index.isin(with_city_mun_idx)))
+        & (~((_df["provRes"] == "") | (_df["provRes"].isna())))
+        & (~(_df["regionResGeo"].isin(REGION_UNKNOWN)))
+    ].copy()
+    with_prov_idx = with_prov_df.index.to_list()
+    with_prov_df = update_loc_province(with_prov_df)
+
+    with_reg_df = _df.loc[
+        (~(_df.index.isin(with_city_mun_idx + with_prov_idx)))
+        & (~((_df["regionRes"] == "") | (_df["regionRes"].isna())))
+        & (~(_df["regionResGeo"].isin(REGION_UNKNOWN)))
+    ].copy()
+    with_reg_idx = with_reg_df.index.to_list()
+    with_reg_df = update_loc_region(with_reg_df)
+
+    no_loc_df = _df.loc[
+        ~(_df.index.isin(with_city_mun_idx + with_prov_idx + with_reg_idx))
+    ].copy()
+    no_loc_df = no_loc_df.drop(columns=["regionResGeo"], errors="ignore").copy()
+
+    return pd.concat(
+        [
+            with_city_mun_df,
+            with_prov_df,
+            with_reg_df,
+            no_loc_df,
+        ]
     )
-    db_loc_city_mun_df = db_loc_city_mun_df.loc[
-        ~(
-            (db_loc_city_mun_df["regionResGeo"].isin(REGION_UNKNOWN))
-            | (db_loc_city_mun_df["regionResGeo"].isna())
-        )
-    ].copy()
-    update_loc_city_mun(db_loc_city_mun_df, mongo_col)
-
-    db_loc_prov_df = pd.DataFrame(
-        mongo_col.find(
-            {
-                "$and": [
-                    {"provRes": {"$exists": True}},
-                    {"provRes": {"$ne": ""}},
-                    {"$or": [{"cityMunRes": {"$exists": False}}, {"cityMunRes": ""}]},
-                    {"$or": [{"provResGeo": {"$exists": False}}, {"provResGeo": ""}]},
-                    {
-                        "$or": [
-                            {"cityMunResGeo": {"$exists": False}},
-                            {"cityMunResGeo": ""},
-                        ]
-                    },
-                ]
-            },
-            {"_id": 0, "regionRes": 1, "provRes": 1},
-        )
-    ).drop_duplicates()
-    db_loc_prov_df.loc[:, "regionResGeo"] = db_loc_prov_df["regionRes"].map(REGION_MAP)
-    db_loc_prov_df = db_loc_prov_df.loc[
-        ~(
-            (db_loc_prov_df["regionResGeo"].isin(REGION_UNKNOWN))
-            | (db_loc_prov_df["regionResGeo"].isna())
-        )
-    ].copy()
-    update_loc_province(db_loc_prov_df, mongo_col)
-
-    db_loc_region_df = pd.DataFrame(
-        mongo_col.find(
-            {
-                "$and": [
-                    {"regionRes": {"$exists": True}},
-                    {"regionRes": {"$ne": ""}},
-                    {"$or": [{"cityMunRes": {"$exists": False}}, {"cityMunRes": ""}]},
-                    {"$or": [{"provRes": {"$exists": False}}, {"provRes": ""}]},
-                    {
-                        "$or": [
-                            {"regionResGeo": {"$exists": False}},
-                            {"regionResGeo": ""},
-                        ]
-                    },
-                ]
-            },
-            {"_id": 0, "regionRes": 1},
-        )
-    ).drop_duplicates()
-    db_loc_region_df.loc[:, "regionResGeo"] = db_loc_region_df["regionRes"].map(
-        REGION_MAP
-    )
-    db_loc_region_df = db_loc_region_df.loc[
-        ~(
-            (db_loc_region_df["regionResGeo"].isin(REGION_UNKNOWN))
-            | (db_loc_region_df["regionResGeo"].isna())
-        )
-    ].copy()
-    update_loc_region(db_loc_region_df, mongo_col)
 
 
 if __name__ == "__main__":
