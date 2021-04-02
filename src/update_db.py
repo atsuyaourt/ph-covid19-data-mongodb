@@ -9,10 +9,10 @@ import pandas as pd
 from models import CASE_SCHEMA, prep_cases_df
 from make_mappable import make_mappable
 
+load_dotenv()
+
 
 def main():
-    load_dotenv()
-
     # region mongodb
     print("Connecting to mongodb...")
     mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
@@ -72,16 +72,6 @@ def main():
 
     new_df = make_mappable(new_df)
 
-    # region new cases stats
-    new_stats_df = (
-        new_df.groupby(["locId", "healthStatus", "age", "sex"])["caseCode"]
-        .count()
-        .reset_index()
-    )
-    new_stats_df = new_stats_df.rename(columns={"caseCode": "count"})
-    new_stats_df["dateRep"] = new_date
-    # endregion new cases stats
-
     # region deleted entries
     del_case_code = list(set(prev_df["caseCode"]) - set(curr_df["caseCode"]))
     del_df = pd.DataFrame(
@@ -96,7 +86,7 @@ def main():
         mongo_col_del = mongo_db["cases.deleted"]
         mongo_col_del.insert_many(data_dict)
         print("Deleted entries: {}".format(len(del_case_code)))
-    # region deleted entries
+    # endregion deleted entries
 
     # region updated entries
     exist_df = pd.DataFrame(
@@ -127,12 +117,6 @@ def main():
         mongo_col.insert_many(data_dict)
         print("New entries: {}".format(new_df.shape[0]))
     # endregion new entries
-
-    # region store new cases stats
-    mongo_nstats_col = mongo_db["cases.newStats"]
-    data_dict = new_stats_df.to_dict("records")
-    mongo_nstats_col.insert_many(data_dict)
-    # endregion store new cases stats
 
     new_cnt = mongo_col.aggregate(
         [{"$group": {"_id": 1, "count": {"$sum": 1}}}]
