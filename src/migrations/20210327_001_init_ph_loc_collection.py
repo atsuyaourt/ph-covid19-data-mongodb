@@ -1,13 +1,11 @@
-import os
 import sys
 from pathlib import Path
-from dotenv import load_dotenv
 from pymongo import MongoClient
 
 import pandas as pd
 import geopandas as gpd
 
-load_dotenv()
+from constants import MONGO_DB_URL
 
 
 def main():
@@ -18,7 +16,9 @@ def main():
         sys.exit()
     in_gdf = gpd.read_file(in_shp)
     # prep data
-    in_df = in_gdf.loc[in_gdf["type"] != "Waterbody",["region", "province", "name"]].copy()
+    in_df = in_gdf.loc[
+        in_gdf["type"] != "Waterbody", ["region", "province", "name"]
+    ].copy()
 
     region_only_df = in_df.groupby(["region"]).first().reset_index()
     region_only_df["province"] = None
@@ -36,7 +36,7 @@ def main():
 
     # region mongodb
     print("Connecting to mongodb...")
-    mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
+    mongo_client = MongoClient(MONGO_DB_URL)
     mongo_db = mongo_client["defaultDb"]
     mongo_col = mongo_db["ph_loc"]
     if "ph_loc" in mongo_db.list_collection_names():

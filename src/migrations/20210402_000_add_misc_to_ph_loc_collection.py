@@ -1,20 +1,15 @@
-import os
-import sys
 from tqdm import tqdm
-from pathlib import Path
-from dotenv import load_dotenv
 from pymongo import MongoClient
 
 import pandas as pd
-import geopandas as gpd
 
-load_dotenv()
+from constants import MONGO_DB_URL
 
 
 def main():
     # region mongodb
     print("Connecting to mongodb...")
-    mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
+    mongo_client = MongoClient(MONGO_DB_URL)
     mongo_db = mongo_client["defaultDb"]
     mongo_col = mongo_db["ph_loc"]
     print("Connection successful...")

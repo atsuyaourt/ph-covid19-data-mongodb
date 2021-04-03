@@ -1,23 +1,17 @@
-import os
-import sys
 from tqdm import tqdm
-from pathlib import Path
-from dotenv import load_dotenv
 from pymongo import MongoClient
-from bson.objectid import ObjectId
 
 import pandas as pd
 
+from constants import MONGO_DB_URL
 from models import REGION_MAP, REGION_UNKNOWN
 from make_mappable import update_loc_city_mun, update_loc_province, update_loc_region
-
-load_dotenv()
 
 
 def main():
     # region mongodb
     print("Connecting to mongodb...")
-    mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
+    mongo_client = MongoClient(MONGO_DB_URL)
     mongo_db = mongo_client["defaultDb"]
     mongo_col = mongo_db["cases"]
     print("Connection successful...")

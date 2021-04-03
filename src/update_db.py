@@ -1,21 +1,17 @@
-import os
 import sys
-from pathlib import Path
-from dotenv import load_dotenv
 from pymongo import MongoClient
 
 import pandas as pd
 
+from constants import CASE_INFO_CSV_DIR, MONGO_DB_URL, TZ
 from models import CASE_SCHEMA, prep_cases_df
 from make_mappable import make_mappable
-
-load_dotenv()
 
 
 def main():
     # region mongodb
     print("Connecting to mongodb...")
-    mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
+    mongo_client = MongoClient(MONGO_DB_URL)
     if "defaultDb" not in mongo_client.list_database_names():
         print("Database not found... exiting...")
         mongo_client.close()
@@ -29,14 +25,14 @@ def main():
     print("Connection successful...")
     # endregion mongodb
 
-    in_csvs = list(Path("input/csv").glob("*case_info.csv"))
+    in_csvs = list(CASE_INFO_CSV_DIR.glob("*case_info.csv"))
     in_csvs.sort()
     in_csv = in_csvs[-1]
     curr_df = pd.read_csv(in_csv, low_memory=False)
     curr_df = prep_cases_df(curr_df)
 
     date_str = in_csv.name.split("_")[0]
-    new_date = pd.to_datetime(date_str).tz_localize("Asia/Manila")
+    new_date = pd.to_datetime(date_str).tz_localize(TZ)
     print("Date: {}".format(new_date))
 
     in_csv0 = in_csvs[-2]

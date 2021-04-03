@@ -6,14 +6,13 @@ from pymongo import MongoClient
 
 import pandas as pd
 
+from constants import CASE_INFO_CSV_DIR, MONGO_DB_URL, TZ
 from models import prep_cases_df
-
-load_dotenv()
 
 
 def main():
     # Load initial data
-    in_csv = Path("input/csv") / "20200609_case_info.csv"
+    in_csv = CASE_INFO_CSV_DIR / "20200609_case_info.csv"
     if not in_csv.is_file():
         print("Error: Input file missing")
         sys.exit()
@@ -22,11 +21,11 @@ def main():
     in_df = prep_cases_df(in_df)
 
     date_str = in_csv.name.split("_")[0]
-    in_df["createdAt"] = pd.to_datetime(date_str).tz_localize("Asia/Manila")
+    in_df["createdAt"] = pd.to_datetime(date_str).tz_localize(TZ)
 
     # region mongodb
     print("Connecting to mongodb...")
-    mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
+    mongo_client = MongoClient(MONGO_DB_URL)
     mongo_db = mongo_client["defaultDb"]
     mongo_col = mongo_db["cases"]
     if "cases" in mongo_db.list_collection_names():

@@ -1,15 +1,12 @@
-import os
 import sys
 import json
-from pathlib import Path
-from dotenv import load_dotenv
 from pymongo import MongoClient
 
-load_dotenv()
+from constants import MONGO_DB_URL
 
 # region mongodb
 print("Connecting to mongodb...")
-mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
+mongo_client = MongoClient(MONGO_DB_URL)
 if "default" not in mongo_client.list_database_names():
     print("Database not found... exiting...")
     mongo_client.close()
