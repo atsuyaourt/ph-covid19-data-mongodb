@@ -4,6 +4,10 @@ Contains scripts for processing COVID-19 data from the [DOH data drop](http://bi
 
 Data updated daily since `June 9, 2020`.
 
+## React App:
+* Live: https://emiliogozo.me/ph-covid19-react
+* Github: https://github.com/emiliogozo/ph-covid19-react
+
 ## Example API:
 * Live: https://phcovid19api.carpe-datum.live/v1/docs/
 * Github: https://github.com/emiliogozo/ph-covid19-api
@@ -12,7 +16,7 @@ Data updated daily since `June 9, 2020`.
 ## Fields:
 | Field Name        | Description                                                              | Type    |
 | ----------------- | ------------------------------------------------------------------------ | ------- |
-| caseCode          | Random code assigned for labelling cases                                 | String  |
+| caseCode          | Random code assigned for labelling cases (PK)                            | String  |
 | age               | Age                                                                      | Integer |
 | sex               | Sex                                                                      | Enum    |
 | dateSpecimen      | Date when specimen was collected                                         | Date    |
@@ -34,24 +38,11 @@ Data updated daily since `June 9, 2020`.
 | isQuarantined     | Yes if home quarantined                                                  | Boolean |
 | dateOnset         | Date of onset of symptoms                                                | Date    |
 | isPregnant        | Yes if patient is pregnant at any point during COVID-19 condition        | Boolean |
-| ----------------- | **Additional Fields**                                                    | ------- |
+
+
+## Additional Fields:
+| Field Name        | Description                                                              | Type    |
 | ----------------- | ------------------------------------------------------------------------ | ------- |
 | createdAt         | Date added to database                                                   | Date    |
-| updatedAt         | Date updated in the database                                             | Date    |
-| deletedAt         | Date marked as invalid in the database                                   | Date    |
-| regionResGeo      | Region of residence                                                      | Loc     |
-| provResGeo        | Province of residence                                                    | Loc     |
-| cityMunResGeo     | City of residence                                                        | Loc     |
-
-
-- Indices: `createdAt`, `caseCode`, `healthStatus`
-- No Date: `ISODate("1970-01-01T00:00:00 PHT")`
-- Entries identified by DOH as duplicates have the following field values:
-  
-    ```json
-    {  
-        "deletedAt": { "$exists": 1 },
-        "healthStatus": "invalid",  
-        "removalType": "duplicate"  
-    }
-    ```
+| updatedAt         | Date updated in     database                                             | Date    |
+| locId             | ID of matched mappble location (FK)                                      |         |
