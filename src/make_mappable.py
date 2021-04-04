@@ -2,7 +2,6 @@ import os
 import sys
 from tqdm import tqdm
 from pathlib import Path
-from dotenv import load_dotenv
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 
@@ -10,9 +9,9 @@ import pandas as pd
 import geopandas as gpd
 
 from fuzzywuzzy import process as fz_process
-from models import REGION_MAP, REGION_UNKNOWN
 
-load_dotenv()
+from constants import MONGO_DB_URL
+from models import REGION_MAP, REGION_UNKNOWN
 
 LOC_CITY_MUN_SAV = Path("config/lookup/loc_city_mun.csv")
 LOC_PROV_SAV = Path("config/lookup/loc_prov.csv")
@@ -29,7 +28,7 @@ def update_loc_city_mun(db_loc_df):
         pandas.DataFrame: The updated data.
     """
     # region mongodb
-    mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
+    mongo_client = MongoClient(MONGO_DB_URL)
     mongo_db = mongo_client["defaultDb"]
     mongo_col = mongo_db["ph_loc"]
     # endregion mongodb
@@ -116,7 +115,7 @@ def update_loc_province(db_loc_df):
         pandas.DataFrame: The updated data.
     """
     # region mongodb
-    mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
+    mongo_client = MongoClient(MONGO_DB_URL)
     mongo_db = mongo_client["defaultDb"]
     mongo_col = mongo_db["ph_loc"]
     # endregion mongodb
@@ -178,7 +177,7 @@ def update_loc_region(db_loc_df):
         mongo_col (pymongo.Collection): The collection to be updated.
     """
     # region mongodb
-    mongo_client = MongoClient(os.getenv("MONGO_DB_URL"))
+    mongo_client = MongoClient(MONGO_DB_URL)
     mongo_db = mongo_client["defaultDb"]
     mongo_col = mongo_db["ph_loc"]
     # endregion mongodb
@@ -210,7 +209,8 @@ def make_mappable(df):
         & (~(_df["regionResGeo"].isin(REGION_UNKNOWN)))
     ].copy()
     with_city_mun_idx = with_city_mun_df.index.to_list()
-    with_city_mun_df = update_loc_city_mun(with_city_mun_df)
+    if with_city_mun_df.shape[0] > 0:
+        with_city_mun_df = update_loc_city_mun(with_city_mun_df)
 
     with_prov_df = _df.loc[
         (~(_df.index.isin(with_city_mun_idx)))
@@ -218,12 +218,14 @@ def make_mappable(df):
         & (~(_df["regionResGeo"].isin(REGION_UNKNOWN)))
     ].copy()
     with_prov_idx = with_prov_df.index.to_list()
-    with_prov_df = update_loc_province(with_prov_df)
+    if with_prov_df.shape[0] > 0:
+        with_prov_df = update_loc_province(with_prov_df)
 
     with_reg_df = _df.loc[~(_df.index.isin(with_city_mun_idx + with_prov_idx))].copy()
     with_reg_df["regionRes"] = with_reg_df["regionRes"].fillna("")
     with_reg_idx = with_reg_df.index.to_list()
-    with_reg_df = update_loc_region(with_reg_df)
+    if with_reg_df.shape[0] > 0:
+        with_reg_df = update_loc_region(with_reg_df)
 
     no_loc_df = _df.loc[
         ~(_df.index.isin(with_city_mun_idx + with_prov_idx + with_reg_idx))
@@ -232,13 +234,17 @@ def make_mappable(df):
         print(no_loc_df["regionRes"].unique())
     no_loc_df = no_loc_df.drop(columns=["regionResGeo"], errors="ignore").copy()
 
-    return pd.concat(
-        [
-            with_city_mun_df,
-            with_prov_df,
-            with_reg_df,
-            no_loc_df,
-        ]
+    return (
+        pd.concat(
+            [
+                with_city_mun_df,
+                with_prov_df,
+                with_reg_df,
+                no_loc_df,
+            ]
+        )
+        .drop(columns=["regionResGeo"], errors="ignore")
+        .copy()
     )
 
 
