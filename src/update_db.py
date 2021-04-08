@@ -5,7 +5,6 @@ import pandas as pd
 
 from constants import CASE_INFO_CSV_DIR, MONGO_DB_URL, TZ
 from models import CASE_SCHEMA, prep_cases_df
-from make_mappable import make_mappable
 
 
 def main():
@@ -45,16 +44,6 @@ def main():
         mongo_client.close()
         sys.exit()
 
-    # if len(new_cols) > 0:
-    #     print("Added new columns")
-    #     defaults = {
-    #         k: v["default"]
-    #         for col_name in new_cols
-    #         for k, v in CASE_SCHEMA.items()
-    #         if k == col_name
-    #     }
-    #     mongo_col.update_many({}, {"$set": defaults})
-
     curr_cnt = mongo_col.aggregate(
         [{"$group": {"_id": 1, "count": {"$sum": 1}}}]
     ).next()["count"]
@@ -65,8 +54,6 @@ def main():
         [prev_df[common_cols], prev_df[common_cols], curr_df[common_cols]]
     ).drop_duplicates(keep=False)
     new_df = curr_df.loc[curr_df["caseCode"].isin(new_df["caseCode"])].copy()
-
-    new_df = make_mappable(new_df)
 
     # region deleted entries
     del_case_code = list(set(prev_df["caseCode"]) - set(curr_df["caseCode"]))
