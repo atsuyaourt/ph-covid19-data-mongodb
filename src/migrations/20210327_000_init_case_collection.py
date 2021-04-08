@@ -1,10 +1,11 @@
+import os
 import sys
 from pathlib import Path
 from pymongo import MongoClient
 
 import pandas as pd
 
-from constants import MONGO_DB_URL, TZ, CASE_INFO_CSV_DIR
+from constants import CASE_INFO_CSV_DIR, MONGO_DB_URL, TZ
 from models import prep_cases_df
 
 
@@ -14,7 +15,7 @@ def main():
     if not in_csv.is_file():
         print("Error: Input file missing")
         sys.exit()
-    in_df = pd.read_csv(in_csv)
+    in_df = pd.read_csv(in_csv, low_memory=False)
     # prep data
     in_df = prep_cases_df(in_df)
 
@@ -24,16 +25,13 @@ def main():
     # region mongodb
     print("Connecting to mongodb...")
     mongo_client = MongoClient(MONGO_DB_URL)
-    if "default" not in mongo_client.list_database_names():
-        print("Database not found... exiting...")
-        mongo_client.close()
-        sys.exit()
-    mongo_db = mongo_client["default"]
-    if "cases" not in mongo_db.list_collection_names():
-        print("Collection not found... exiting...")
-        mongo_client.close()
-        sys.exit()
+    mongo_db = mongo_client["defaultDb"]
     mongo_col = mongo_db["cases"]
+    if "cases" in mongo_db.list_collection_names():
+        # drop collection first
+        print("Removing old data...")
+        mongo_col.drop()
+
     print("Connection successful...")
     # endregion mongodb
 
@@ -41,9 +39,7 @@ def main():
     data_dict = in_df.to_dict("records")
     mongo_col.create_index(
         [
-            ("createdAt", -1),
             ("caseCode", 1),
-            ("healthStatus", 1),
         ],
         unique=True,
     )
