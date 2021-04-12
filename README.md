@@ -16,28 +16,28 @@ Data updated daily since `June 9, 2020`.
 ## Fields:
 | Field Name        | Description                                                              | Type    |
 | ----------------- | ------------------------------------------------------------------------ | ------- |
-| caseCode          | Random code assigned for labelling cases (PK)                            | String  |
+| caseCode          | Random code assigned for labelling cases                                 | String  |
 | age               | Age                                                                      | Integer |
 | sex               | Sex                                                                      | Enum    |
+| healthStatus      | Known current health status of patient                                   | Enum    |
+|                   | [asymptomatic, mild, severe, critical, died, recovered]                  |         |
+| removalType       | Type of removal:                                                         | Enum    |
+|                   | [recovered, died]                                                        |         |
 | dateSpecimen      | Date when specimen was collected                                         | Date    |
 | dateResultRelease | Date when result is released                                             | Date    |
 | dateRepConf       | Date publicly announced as confirmed case                                | Date    |
 | dateDied          | Date died                                                                | Date    |
 | dateRecover       | Date recovered                                                           | Date    |
-| removalType       | Type of removal:                                                         | Enum    |
-|                   | [recovered, died]                                                        |         |
-| isAdmitted        | Yes if patient has been admitted to hospital                             | Boolean |
+| dateOnset         | Date of onset of symptoms                                                | Date    |
+| isAdmitted        | True if patient has been admitted to hospital                            | Boolean |
+| isQuarantined     | True if home quarantined                                                 | Boolean |
+| isPregnant        | True if patient is pregnant at any point during COVID-19 condition       | Boolean |
 | regionRes         | Region of residence                                                      | String  |
 | provRes           | Province of residence                                                    | String  |
 | cityMunRes        | City of residence                                                        | String  |
 | cityMuniPSGC      | Philippine Standard Geographic Code of Municipality or City of Residence | String  |
 | barangayRes       | Barangay of residence                                                    | String  |
 | barangayPSGC      | Philippine Standard Geographic Code of Barangay of Residence             | String  |
-| healthStatus      | Known current health status of patient                                   | Enum    |
-|                   | [asymptomatic, mild, severe, critical, died, recovered]                  |         |
-| isQuarantined     | Yes if home quarantined                                                  | Boolean |
-| dateOnset         | Date of onset of symptoms                                                | Date    |
-| isPregnant        | Yes if patient is pregnant at any point during COVID-19 condition        | Boolean |
 
 
 ## Additional Fields:
@@ -45,4 +45,3 @@ Data updated daily since `June 9, 2020`.
 | ----------------- | ------------------------------------------------------------------------ | ------- |
 | createdAt         | Date added to database                                                   | Date    |
 | updatedAt         | Date updated in     database                                             | Date    |
-| locId             | ID of matched mappble location (FK)                                      |         |
