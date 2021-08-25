@@ -1,16 +1,18 @@
 import sys
+from dotenv import dotenv_values
 from pymongo import MongoClient
 
 import pandas as pd
 
-from constants import CASE_INFO_CSV_DIR, MONGO_DB_URL, TZ
+from constants import CASE_INFO_CSV_DIR, TZ
 from models import CASE_SCHEMA, prep_cases_df
 
+config = dotenv_values()
 
 def main():
     # region mongodb
     print("Connecting to mongodb...")
-    mongo_client = MongoClient(MONGO_DB_URL)
+    mongo_client = MongoClient(config["MONGO_DB_URL"])
     if "defaultDb" not in mongo_client.list_database_names():
         print("Database not found... exiting...")
         mongo_client.close()
