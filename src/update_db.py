@@ -9,6 +9,7 @@ from models import CASE_SCHEMA, prep_cases_df
 
 config = dotenv_values()
 
+
 def main():
     # region mongodb
     print("Connecting to mongodb...")
@@ -83,12 +84,15 @@ def main():
 
     update_df = exist_df.merge(new_df, on=["caseCode"])
     if update_df.shape[0] > 0:
-        update_ids = update_df["_id"].to_list()
-        mongo_col.delete_many({"_id": {"$in": update_ids}})
-        update_df["updatedAt"] = new_date
-        update_df = update_df.drop(columns=["_id"], errors="ignore")
-        data_dict = update_df.to_dict("records")
-        mongo_col.insert_many(data_dict)
+        n = 20000
+        for i in range(0, update_df.shape[0], n):
+            _update_df = update_df[i : i + n].copy()
+            update_ids = _update_df["_id"].to_list()
+            mongo_col.delete_many({"_id": {"$in": update_ids}})
+            _update_df["updatedAt"] = new_date
+            _update_df = _update_df.drop(columns=["_id"], errors="ignore")
+            data_dict = _update_df.to_dict("records")
+            mongo_col.insert_many(data_dict)
         print("Updated entries: {}".format(update_df.shape[0]))
     # endregion updated entries
 
@@ -97,9 +101,12 @@ def main():
         new_df = new_df.loc[~new_df["caseCode"].isin(update_df["caseCode"])].copy()
 
     if new_df.shape[0] > 0:
-        new_df["createdAt"] = new_date
-        data_dict = new_df.to_dict("records")
-        mongo_col.insert_many(data_dict)
+        n = 20000
+        for i in range(0, new_df.shape[0], n):
+            _new_df = new_df[i : i + n].copy()
+            _new_df["createdAt"] = new_date
+            data_dict = _new_df.to_dict("records")
+            mongo_col.insert_many(data_dict)
         print("New entries: {}".format(new_df.shape[0]))
     # endregion new entries
 
