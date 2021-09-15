@@ -1,20 +1,17 @@
-import os
-import sys
+from dotenv import dotenv_values
 from tqdm import tqdm
 from pathlib import Path
-from pymongo import MongoClient
-from bson.objectid import ObjectId
 
 import pandas as pd
 import geopandas as gpd
 
 from fuzzywuzzy import process as fz_process
 
-from constants import MONGO_DB_URL
 from models import REGION_MAP, REGION_UNKNOWN
 
 LOC_CITY_MUN_SAV = Path("config/lookup/loc_city_mun.csv")
 LOC_PROV_SAV = Path("config/lookup/loc_prov.csv")
+config = dotenv_values()
 
 
 def update_loc_city_mun(db_loc_df):
@@ -27,16 +24,14 @@ def update_loc_city_mun(db_loc_df):
     Returns:
         pandas.DataFrame: The updated data.
     """
-    # region mongodb
-    mongo_client = MongoClient(MONGO_DB_URL)
-    mongo_db = mongo_client["defaultDb"]
-    mongo_col = mongo_db["ph_loc"]
-    # endregion mongodb
-
-    muni_city_df = pd.DataFrame(list(mongo_col.find({"type": "muni_city"})))
-    muni_city_df = muni_city_df.sort_values("region")
-    muni_city_df["loc_name"] = (
-        muni_city_df["muniCity"] + " " + muni_city_df["province"]
+    muni_city_gdf = gpd.read_file("input/shp/Municipalities/Municipalities.shp")
+    muni_city_gdf.rename(
+        columns={"ADM3_EN": "muniCity", "ADM2_EN": "province", "ADM1_EN": "region"},
+        inplace=True,
+    )
+    muni_city_gdf = muni_city_gdf.sort_values("region")
+    muni_city_gdf["loc_name"] = (
+        muni_city_gdf["muniCity"] + " " + muni_city_gdf["province"]
     ).str.lower()
 
     db_loc_df["loc_name"] = (
@@ -61,47 +56,47 @@ def update_loc_city_mun(db_loc_df):
                 "provRes": "",
                 "cityMunRes": "",
                 "regionResGeo": "",
-                "locId": "",
+                "psgc": "",
             }
         ]
     )
     if LOC_CITY_MUN_SAV.is_file():
         lookup_df = pd.read_csv(LOC_CITY_MUN_SAV)
-        lookup_df["locId"] = lookup_df["locId"].map(ObjectId, na_action="ignore")
 
     print("matching location name...")
     for i, r in tqdm(_db_loc_df.iterrows(), total=_db_loc_df.shape[0]):
-        res_loc_id = ""
+        res_psgc = ""
         res = lookup_df.loc[
             (lookup_df["regionResGeo"] == r["regionResGeo"])
             & (lookup_df["provRes"] == r["provRes"])
             & (lookup_df["cityMunRes"] == r["cityMunRes"]),
-            "locId",
+            "psgc",
         ]
         if res.shape[0] == 0:
             res, _, _ = fz_process.extract(
                 r["loc_name"],
-                muni_city_df.loc[
-                    muni_city_df["region"] == r["regionResGeo"], "loc_name"
+                muni_city_gdf.loc[
+                    muni_city_gdf["region"] == r["regionResGeo"], "loc_name"
                 ],
                 limit=1,
             )[0]
             if len(res) > 0:
-                res_loc_id = muni_city_df.loc[
-                    muni_city_df["loc_name"] == res, "_id"
+                res_psgc = muni_city_gdf.loc[
+                    muni_city_gdf["loc_name"] == res, "ADM3_PCODE"
                 ].values[0]
         else:
-            res_loc_id = res.values[0]
-        db_loc_df.loc[db_loc_df["loc_name"] == r["loc_name"], "locId"] = res_loc_id
+            res_psgc = res.values[0]
+        db_loc_df.loc[db_loc_df["loc_name"] == r["loc_name"], "cityMuniPSGC"] = res_psgc
+        db_loc_df.loc[db_loc_df["loc_name"] == r["loc_name"], "psgc"] = res_psgc
 
     pd.concat(
         [
             lookup_df,
-            db_loc_df[["regionRes", "provRes", "cityMunRes", "regionResGeo", "locId"]],
+            db_loc_df[["regionRes", "provRes", "cityMunRes", "regionResGeo", "psgc"]],
         ],
         ignore_index=True,
     ).drop_duplicates().dropna().to_csv(LOC_CITY_MUN_SAV, index=False)
-    return db_loc_df.drop(columns=["loc_name", "regionResGeo"], errors="ignore")
+    return db_loc_df.drop(columns=["loc_name", "regionResGeo", "psgc"], errors="ignore")
 
 
 def update_loc_province(db_loc_df):
@@ -114,14 +109,12 @@ def update_loc_province(db_loc_df):
     Returns:
         pandas.DataFrame: The updated data.
     """
-    # region mongodb
-    mongo_client = MongoClient(MONGO_DB_URL)
-    mongo_db = mongo_client["defaultDb"]
-    mongo_col = mongo_db["ph_loc"]
-    # endregion mongodb
-
-    prov_df = pd.DataFrame(list(mongo_col.find({"type": "province"})))
-    prov_df = prov_df.sort_values("region")
+    prov_gdf = gpd.read_file("input/shp/Provinces/Provinces.shp")
+    prov_gdf.rename(
+        columns={"ADM2_EN": "province", "ADM1_EN": "region"},
+        inplace=True,
+    )
+    prov_gdf = prov_gdf.sort_values("region")
 
     _db_loc_df = db_loc_df.drop_duplicates(
         subset=[
@@ -132,40 +125,42 @@ def update_loc_province(db_loc_df):
     )
 
     lookup_df = pd.DataFrame(
-        [{"regionRes": "", "provRes": "", "regionResGeo": "", "locId": ""}]
+        [{"regionRes": "", "provRes": "", "regionResGeo": "", "psgc": ""}]
     )
     if LOC_PROV_SAV.is_file():
         lookup_df = pd.read_csv(LOC_PROV_SAV)
-        lookup_df["locId"] = lookup_df["locId"].map(ObjectId, na_action="ignore")
 
     print("matching location name...")
     for i, r in tqdm(_db_loc_df.iterrows(), total=_db_loc_df.shape[0]):
-        res_loc_id = ""
+        res_psgc = ""
         res = lookup_df.loc[
             (lookup_df["regionRes"] == r["regionRes"])
             & (lookup_df["provRes"] == r["provRes"]),
-            "locId",
+            "psgc",
         ]
         if res.shape[0] == 0:
             res, _, _ = fz_process.extract(
                 r["provRes"],
-                prov_df.loc[prov_df["region"] == r["regionResGeo"], "province"],
+                prov_gdf.loc[prov_gdf["region"] == r["regionResGeo"], "province"],
                 limit=1,
             )[0]
             if len(res) > 0:
-                res_loc_id = prov_df.loc[prov_df["province"] == res, "_id"].values[0]
+                res_psgc = prov_gdf.loc[
+                    prov_gdf["province"] == res, "ADM2_PCODE"
+                ].values[0]
         else:
-            res_loc_id = res.values[0]
-        db_loc_df.loc[db_loc_df["provRes"] == r["provRes"], "locId"] = res_loc_id
+            res_psgc = res.values[0]
+        db_loc_df.loc[db_loc_df["provRes"] == r["provRes"], "cityMuniPSGC"] = res_psgc
+        db_loc_df.loc[db_loc_df["provRes"] == r["provRes"], "psgc"] = res_psgc
 
     pd.concat(
         [
             lookup_df,
-            db_loc_df[["regionRes", "provRes", "regionResGeo", "locId"]],
+            db_loc_df[["regionRes", "provRes", "regionResGeo", "psgc"]],
         ],
         ignore_index=True,
     ).drop_duplicates().dropna().to_csv(LOC_PROV_SAV, index=False)
-    return db_loc_df.drop(columns=["regionResGeo"], errors="ignore")
+    return db_loc_df.drop(columns=["regionResGeo", "psgc"], errors="ignore")
 
 
 def update_loc_region(db_loc_df):
@@ -176,76 +171,63 @@ def update_loc_region(db_loc_df):
                 ["regionResGeo"]
         mongo_col (pymongo.Collection): The collection to be updated.
     """
-    # region mongodb
-    mongo_client = MongoClient(MONGO_DB_URL)
-    mongo_db = mongo_client["defaultDb"]
-    mongo_col = mongo_db["ph_loc"]
-    # endregion mongodb
-
-    region_df = pd.DataFrame(
-        list(mongo_col.find({"type": {"$in": ["region", "misc"]}}))
+    region_gdf = gpd.read_file("input/shp/Regions/Regions.shp")
+    region_gdf.rename(
+        columns={"ADM1_EN": "region"},
+        inplace=True,
     )
-    region_df = region_df.sort_values("region")
+    region_gdf = region_gdf.sort_values("region")
 
     _db_loc_df = db_loc_df.drop_duplicates(subset=["regionResGeo"])
 
     print("matching location name...")
     for i, r in tqdm(_db_loc_df.iterrows(), total=_db_loc_df.shape[0]):
-        res_loc_id = region_df.loc[
-            region_df["region"] == r["regionResGeo"],
-            "_id",
+        res_psgc = region_gdf.loc[
+            region_gdf["region"] == r["regionResGeo"],
+            "ADM1_PCODE",
         ].values[0]
         db_loc_df.loc[
-            db_loc_df["regionResGeo"] == r["regionResGeo"], "locId"
-        ] = res_loc_id
+            db_loc_df["regionResGeo"] == r["regionResGeo"], "cityMuniPSGC"
+        ] = res_psgc
     return db_loc_df.drop(columns=["regionResGeo"], errors="ignore")
 
 
 def make_mappable(df):
     _df = df.copy()
+
     _df.loc[:, "regionResGeo"] = _df["regionRes"].map(REGION_MAP)
+    no_loc_df = _df.loc[_df["regionResGeo"].isin(REGION_UNKNOWN)].copy()
+    _df = _df.loc[~_df["regionResGeo"].isin(REGION_UNKNOWN)].copy()
+
     with_city_mun_df = _df.loc[
-        (~((_df["cityMunRes"] == "") | (_df["cityMunRes"].isna())))
-        & (~(_df["regionResGeo"].isin(REGION_UNKNOWN)))
+        ~((_df["cityMunRes"] == "") | (_df["cityMunRes"].isna()))
     ].copy()
     with_city_mun_idx = with_city_mun_df.index.to_list()
     if with_city_mun_df.shape[0] > 0:
         with_city_mun_df = update_loc_city_mun(with_city_mun_df)
+    _df = _df.loc[~_df.index.isin(with_city_mun_idx)].copy()
 
-    with_prov_df = _df.loc[
-        (~(_df.index.isin(with_city_mun_idx)))
-        & (~((_df["provRes"] == "") | (_df["provRes"].isna())))
-        & (~(_df["regionResGeo"].isin(REGION_UNKNOWN)))
-    ].copy()
+    with_prov_df = _df.loc[~((_df["provRes"] == "") | (_df["provRes"].isna()))].copy()
     with_prov_idx = with_prov_df.index.to_list()
     if with_prov_df.shape[0] > 0:
         with_prov_df = update_loc_province(with_prov_df)
+    _df = _df.loc[~_df.index.isin(with_prov_idx)].copy()
 
-    with_reg_df = _df.loc[~(_df.index.isin(with_city_mun_idx + with_prov_idx))].copy()
-    with_reg_df["regionRes"] = with_reg_df["regionRes"].fillna("")
-    with_reg_idx = with_reg_df.index.to_list()
-    if with_reg_df.shape[0] > 0:
-        with_reg_df = update_loc_region(with_reg_df)
+    if _df.shape[0] > 0:
+        _df = update_loc_region(_df)
 
-    no_loc_df = _df.loc[
-        ~(_df.index.isin(with_city_mun_idx + with_prov_idx + with_reg_idx))
-    ].copy()
     if no_loc_df.shape[0] > 0:
         print(no_loc_df["regionRes"].unique())
-    no_loc_df = no_loc_df.drop(columns=["regionResGeo"], errors="ignore").copy()
+    no_loc_df.drop(columns=["regionResGeo"], errors="ignore", inplace=True)
 
-    return (
-        pd.concat(
-            [
-                with_city_mun_df,
-                with_prov_df,
-                with_reg_df,
-                no_loc_df,
-            ]
-        )
-        .drop(columns=["regionResGeo"], errors="ignore")
-        .copy()
-    )
+    return pd.concat(
+        [
+            with_city_mun_df,
+            with_prov_df,
+            _df,
+            no_loc_df,
+        ]
+    ).drop(columns=["regionResGeo"], errors="ignore")
 
 
 if __name__ == "__main__":
