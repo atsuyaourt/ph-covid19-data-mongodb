@@ -15,8 +15,18 @@ def main():
     in_csvs = list(CASE_INFO_CSV_DIR.glob("*case_info.csv"))
     in_csvs.sort()
     in_csv = in_csvs[-1]
-    curr_df = pd.read_csv(in_csv, low_memory=False)
+
+    if (CASE_INFO_CSV_DIR / in_csv.name.split(".")[0]).is_dir():
+        _in_csvs = list((CASE_INFO_CSV_DIR / in_csv.name.split(".")[0]).glob("*.csv"))
+        _in_csvs.sort()
+        curr_df = pd.concat(
+            [pd.read_csv(_in_csv, low_memory=False) for _in_csv in _in_csvs],
+            ignore_index=True,
+        )
+    else:
+        curr_df = pd.read_csv(in_csv, low_memory=False)
     curr_df = prep_cases_df(curr_df)
+    curr_df.drop_duplicates(subset=["caseCode"], inplace=True, ignore_index=True)
 
     date_str = in_csv.name.split("_")[0]
     new_date = pd.to_datetime(date_str).tz_localize(TZ)
